@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Droplet } from "lucide-react";
+import { Droplet, Sun, Moon } from "lucide-react";
+import { useTheme } from "../context/ThemeContext";
 
 interface NavbarProps {
   onOpenLogin: () => void;
@@ -11,8 +12,10 @@ export default function Navbar({ onOpenLogin, onOpenRegister }: NavbarProps) {
   const location = useLocation();
   const path = location.pathname;
   const [activeSection, setActiveSection] = useState("home");
+  const { theme, toggleTheme } = useTheme();
 
-  // Track scroll position to update active nav link on the landing page
+  const isDark = theme === "dark";
+
   useEffect(() => {
     if (path !== "/") return;
 
@@ -48,16 +51,34 @@ export default function Navbar({ onOpenLogin, onOpenRegister }: NavbarProps) {
     }
   };
 
+  const handleThemeClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleTheme();
+  };
+
   return (
-    <nav className="sticky top-0 z-50 w-full bg-blue-700/85 backdrop-blur-md border-b border-blue-400/20 shadow-lg shadow-blue-900/30 transition-all">
+    <nav
+      className={`sticky top-0 z-50 w-full backdrop-blur-md border-b shadow-lg transition-all ${
+        isDark
+          ? "bg-brandBlue text-white border-blue-900 shadow-blue-950/50"
+          : "bg-blue-600 text-white border-blue-400/20 shadow-blue-900/30"
+      }`}
+    >
       <div className="px-8 lg:px-16 py-4 flex justify-between items-center max-w-[1600px] mx-auto w-full">
         {/* Brand Logo */}
         <Link
           to="/"
           onClick={handleHomeClick}
-          className="flex items-center space-x-3 text-xl font-black tracking-tight text-white group"
+          className="flex items-center space-x-3 text-xl font-black tracking-tight group"
         >
-          <div className="bg-white/10 backdrop-blur-md p-2.5 rounded-2xl border border-white/20 shadow-sm transition group-hover:bg-white/20">
+          <div
+            className={`backdrop-blur-md p-2.5 rounded-2xl border shadow-sm transition ${
+              isDark
+                ? "bg-blue-900/60 border-blue-800 group-hover:bg-blue-900"
+                : "bg-white/15 border-white/25 group-hover:bg-white/25"
+            }`}
+          >
             <Droplet className="h-6 w-6 text-cyan-300 fill-cyan-300" />
           </div>
           <span className="bg-gradient-to-r from-white via-blue-100 to-cyan-200 bg-clip-text text-transparent">
@@ -65,49 +86,95 @@ export default function Navbar({ onOpenLogin, onOpenRegister }: NavbarProps) {
           </span>
         </Link>
 
-        {/* Nav Links with Dynamic Active States */}
-        <div className="hidden md:flex items-center space-x-8 text-sm font-semibold text-blue-100">
+        {/* Nav Links */}
+        <div
+          className={`hidden md:flex items-center space-x-8 text-sm font-semibold ${isDark ? "text-blue-100" : "text-blue-100"}`}
+        >
           <Link
             to="/"
             onClick={handleHomeClick}
-            className={`transition py-1 border-b-2 ${path === "/" && activeSection === "home" ? "text-white border-cyan-300 font-bold" : "border-transparent hover:text-white"}`}
+            className={`transition py-1 border-b-2 ${
+              path === "/" && activeSection === "home"
+                ? "text-white border-cyan-300 font-bold"
+                : "border-transparent hover:text-white"
+            }`}
           >
             Home
           </Link>
           <a
             href="/#services"
             onClick={() => setActiveSection("services")}
-            className={`transition py-1 border-b-2 ${activeSection === "services" && path === "/" ? "text-white border-cyan-300 font-bold" : "border-transparent hover:text-white"}`}
+            className={`transition py-1 border-b-2 ${
+              activeSection === "services" && path === "/"
+                ? "text-white border-cyan-300 font-bold"
+                : "border-transparent hover:text-white"
+            }`}
           >
             Services
           </a>
           <a
             href="/#about"
             onClick={() => setActiveSection("about")}
-            className={`transition py-1 border-b-2 ${activeSection === "about" && path === "/" ? "text-white border-cyan-300 font-bold" : "border-transparent hover:text-white"}`}
+            className={`transition py-1 border-b-2 ${
+              activeSection === "about" && path === "/"
+                ? "text-white border-cyan-300 font-bold"
+                : "border-transparent hover:text-white"
+            }`}
           >
             About
           </a>
           <a
             href="/#contact"
             onClick={() => setActiveSection("contact")}
-            className={`transition py-1 border-b-2 ${activeSection === "contact" && path === "/" ? "text-white border-cyan-300 font-bold" : "border-transparent hover:text-white"}`}
+            className={`transition py-1 border-b-2 ${
+              activeSection === "contact" && path === "/"
+                ? "text-white border-cyan-300 font-bold"
+                : "border-transparent hover:text-white"
+            }`}
           >
             Contact
           </a>
         </div>
 
-        {/* Modal Trigger Buttons */}
-        <div className="flex items-center space-x-3">
+        {/* Actions & Theme Toggle Button */}
+        <div className="flex items-center space-x-3 relative z-50">
           <button
+            type="button"
+            onClick={handleThemeClick}
+            className={`p-2.5 rounded-xl backdrop-blur-md transition cursor-pointer pointer-events-auto shadow-md border ${
+              isDark
+                ? "bg-blue-900/60 hover:bg-blue-900 text-white border-blue-800"
+                : "bg-white/15 hover:bg-white/25 text-white border-white/25"
+            }`}
+            aria-label="Toggle Theme"
+          >
+            {isDark ? (
+              <Sun className="h-4 w-4 text-cyan-300" />
+            ) : (
+              <Moon className="h-4 w-4 text-cyan-200" />
+            )}
+          </button>
+
+          <button
+            type="button"
             onClick={onOpenLogin}
-            className="px-5 py-2.5 rounded-xl font-bold text-sm backdrop-blur-md transition shadow-md bg-white/10 hover:bg-white/20 text-white border border-white/20 cursor-pointer"
+            className={`px-5 py-2.5 rounded-xl font-bold text-sm backdrop-blur-md transition shadow-md border cursor-pointer pointer-events-auto ${
+              isDark
+                ? "bg-blue-900/60 hover:bg-blue-900 text-white border-blue-800"
+                : "bg-white/15 hover:bg-white/25 text-white border-white/25"
+            }`}
           >
             Login
           </button>
+
           <button
+            type="button"
             onClick={onOpenRegister}
-            className="px-5 py-2.5 rounded-xl font-black text-sm transition shadow-xl bg-white text-blue-700 hover:bg-blue-50 cursor-pointer"
+            className={`px-5 py-2.5 rounded-xl font-black text-sm transition shadow-xl cursor-pointer pointer-events-auto ${
+              isDark
+                ? "bg-gradient-to-r from-cyan-400 to-blue-400 text-slate-950 hover:from-cyan-300 hover:to-blue-300"
+                : "bg-white text-blue-600 hover:bg-blue-50"
+            }`}
           >
             Register
           </button>

@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useTheme } from "../../context/ThemeContext";
+import { Sun, Moon } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -19,6 +21,8 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "orders" | "products" | "reports"
   >("dashboard");
+
+  const { theme, toggleTheme } = useTheme();
 
   // Mock Data for Admin States
   const [orders] = useState([
@@ -152,6 +156,10 @@ export default function AdminDashboard() {
               <TrendingUp className="h-4 w-4" />
               <span>Sales & WMA Reports</span>
             </button>
+            <button
+              onClick={toggleTheme}
+              className="p-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-md transition cursor-pointer"
+            ></button>
           </nav>
         </div>
 
