@@ -5,12 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        aquablue: {
-          50: "#e0f2fe",
-          500: "#0284c7",
-          600: "#0284c7",
-          700: "#0369a1",
-        },
+        brandBlue: "#1e3a8a", // <--- Your exact royal blue color
       },
     },
   },
