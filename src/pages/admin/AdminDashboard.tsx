@@ -25,10 +25,7 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronDown,
-  Phone,
-  MapPin,
   Search,
-  Shield,
   Briefcase,
   BarChart3,
   Edit3,
@@ -855,6 +852,13 @@ export default function AdminDashboard() {
                           viewingCustomerHistory.FirstName.toLowerCase(),
                         ),
                   )
+                  .map((item) => ({
+                    id: item.id,
+                    customer: item.customer,
+                    total: item.total,
+                    date: item.date,
+                    status: item.status,
+                  }))
                   .concat(
                     salesRecords
                       .filter(
@@ -874,7 +878,7 @@ export default function AdminDashboard() {
                         status: "COMPLETED",
                       })),
                   )
-                  .map((item: any, idx: number) => (
+                  .map((item, idx: number) => (
                     <div
                       key={idx}
                       className="flex justify-between items-center p-3.5 bg-slate-50 rounded-xl border border-slate-100 text-sm font-bold"
@@ -884,15 +888,15 @@ export default function AdminDashboard() {
                           {item.id}
                         </span>
                         <span className="text-xs text-slate-400 font-medium">
-                          {item.date || "3/10/2026"}
+                          {item.date}
                         </span>
                       </div>
                       <div className="text-right">
                         <span className="text-slate-900 font-black block">
-                          {item.total || "₱50.00"}
+                          {item.total}
                         </span>
                         <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">
-                          {item.status || "DELIVERED"}
+                          {item.status}
                         </span>
                       </div>
                     </div>
@@ -1887,7 +1891,7 @@ export default function AdminDashboard() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-slate-50">
-        {/* Top Header with Swapped Elements (Quick Search First, Bell Second) */}
+        {/* Top Header (Quick Search First, Bell Second) */}
         <div className="px-8 lg:px-12 pt-8 pb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-5xl font-black text-slate-900 tracking-tight">
@@ -1904,7 +1908,7 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex items-center space-x-3 w-full sm:w-auto justify-end">
-            {/* Global Command Palette Bar (First) */}
+            {/* Quick Search Bar */}
             <div className="relative w-full sm:w-64">
               <Command className="absolute left-4 top-3.5 h-4 w-4 text-blue-600" />
               <input
@@ -1916,7 +1920,7 @@ export default function AdminDashboard() {
               />
             </div>
 
-            {/* Notifications Dropdown Bell (Second) */}
+            {/* Notifications Dropdown Bell */}
             <div className="relative" ref={notifRef}>
               <button
                 type="button"
@@ -2026,15 +2030,6 @@ export default function AdminDashboard() {
                         </button>
                       </div>
                     ))}
-                  {customers.filter((c) =>
-                    `${c.FirstName} ${c.LastName} ${c.Email}`
-                      .toLowerCase()
-                      .includes(globalSearch.toLowerCase()),
-                  ).length === 0 && (
-                    <p className="text-xs text-slate-400 italic">
-                      No matching customers
-                    </p>
-                  )}
                 </div>
 
                 <div className="bg-white p-4 rounded-2xl border border-blue-100 shadow-sm space-y-2">
@@ -2063,15 +2058,6 @@ export default function AdminDashboard() {
                         </button>
                       </div>
                     ))}
-                  {orders.filter((o) =>
-                    `${o.id} ${o.customer}`
-                      .toLowerCase()
-                      .includes(globalSearch.toLowerCase()),
-                  ).length === 0 && (
-                    <p className="text-xs text-slate-400 italic">
-                      No matching orders
-                    </p>
-                  )}
                 </div>
 
                 <div className="bg-white p-4 rounded-2xl border border-blue-100 shadow-sm space-y-2">
@@ -2096,13 +2082,6 @@ export default function AdminDashboard() {
                         </button>
                       </div>
                     ))}
-                  {products.filter((p) =>
-                    p.name.toLowerCase().includes(globalSearch.toLowerCase()),
-                  ).length === 0 && (
-                    <p className="text-xs text-slate-400 italic">
-                      No matching products
-                    </p>
-                  )}
                 </div>
               </div>
             </div>
