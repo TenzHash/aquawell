@@ -9,7 +9,7 @@ import {
   ArrowLeft,
   Droplet,
   Plus,
-  DollarSign,
+  Coins,
   Menu,
   Eye,
   Filter,
@@ -33,7 +33,18 @@ import {
   BarChart3,
   Edit3,
   Trash2,
-  CoinsIcon,
+  UserCheck,
+  Receipt,
+  CreditCard,
+  FileText,
+  Calendar,
+  Activity,
+  Mail,
+  AlertTriangle,
+  History,
+  Command,
+  Bell,
+  Check,
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -43,6 +54,79 @@ export default function AdminDashboard() {
   >("dashboard");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [orderFilter, setOrderFilter] = useState("All Orders");
+
+  // Global Command Palette / Quick Search State
+  const [globalSearch, setGlobalSearch] = useState("");
+
+  // Notifications Dropdown State
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      title: "Low Stock Warning",
+      desc: "5-Gallon Refill stock is at 8 units (Min: 15).",
+      time: "10m ago",
+      unread: true,
+    },
+    {
+      id: 2,
+      title: "New Order Placed",
+      desc: "Order #ORD-002 requires rider dispatch.",
+      time: "1h ago",
+      unread: true,
+    },
+    {
+      id: 3,
+      title: "System Backup",
+      desc: "Automatic nightly database backup completed.",
+      time: "5h ago",
+      unread: false,
+    },
+  ]);
+
+  const unreadCount = notifications.filter((n) => n.unread).length;
+
+  const markAllNotificationsAsRead = () => {
+    setNotifications(notifications.map((n) => ({ ...n, unread: false })));
+  };
+
+  // Customer Order History Modal State
+  const [viewingCustomerHistory, setViewingCustomerHistory] = useState<
+    any | null
+  >(null);
+
+  // Sales Report Filtering State
+  const [reportType, setReportType] = useState<"sales" | "inventory">("sales");
+  const [reportDateRange, setReportDateRange] = useState("This Month");
+
+  // System Audit Trail / Activity Log State
+  const [auditLogs, setAuditLogs] = useState([
+    {
+      id: "LOG-301",
+      user: "Admin User",
+      action: "Assigned Rider Juan to Order #ORD-001",
+      timestamp: "Today, 10:45 AM",
+      type: "assignment",
+    },
+    {
+      id: "LOG-300",
+      user: "Admin User",
+      action: "Recorded sales transaction TXN-1001 (₱100.00)",
+      timestamp: "Today, 09:15 AM",
+      type: "sale",
+    },
+  ]);
+
+  const addAuditLog = (user: string, action: string, type: string) => {
+    const newLog = {
+      id: `LOG-${302 + auditLogs.length}`,
+      user,
+      action,
+      timestamp: "Just now",
+      type,
+    };
+    setAuditLogs([newLog, ...auditLogs]);
+  };
 
   // Accordion Dropdown State for Sidebar Submenu
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -86,6 +170,7 @@ export default function AdminDashboard() {
     localStorage.setItem("aquawell_admin_email", adminEmail);
     setActiveSubView(null);
     setIsProfileMenuOpen(false);
+    addAuditLog(adminName, "Updated admin account profile details", "profile");
     showToast("Profile updated successfully!", "success");
   };
 
@@ -94,10 +179,16 @@ export default function AdminDashboard() {
     localStorage.setItem("aquawell_station_phone", stationPhone);
     setActiveSubView(null);
     setIsProfileMenuOpen(false);
+    addAuditLog(
+      adminName,
+      `Updated station settings for ${stationName}`,
+      "settings",
+    );
     showToast("Station settings saved successfully!", "success");
   };
 
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -108,39 +199,283 @@ export default function AdminDashboard() {
         setIsProfileMenuOpen(false);
         setActiveSubView(null);
       }
+      if (
+        notifRef.current &&
+        !notifRef.current.contains(event.target as Node)
+      ) {
+        setIsNotificationsOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ================= 1. ORDERS CRUD STATE & MODALS =================
+  // ================= VALIDATION HELPERS =================
+  const validatePhoneNumber = (phone: string) => {
+    const phPattern = /^(09|\+639)\d{9}$/;
+    return phPattern.test(phone.replace(/\s+/g, ""));
+  };
+
+  const validateName = (name: string) => {
+    const namePattern = /^[A-Za-zÀ-ÿ\s.-]+$/;
+    return namePattern.test(name.trim());
+  };
+
+  // ================= 1. SALES TRANSACTION STATE & MODAL =================
+  const [salesRecords, setSalesRecords] = useState([
+    {
+      TransactionID: "TXN-1001",
+      CustomerName: "John Doe",
+      ItemName: "5-Gallon Purified Water Refill",
+      Quantity: 2,
+      TotalAmount: "₱100.00",
+      PaymentMethod: "Cash",
+      Date: "2026-03-30",
+    },
+  ]);
+
+  const [isRecordSaleOpen, setIsRecordSaleOpen] = useState(false);
+  const [saleCustomer, setSaleCustomer] = useState("Walk-in Customer");
+  const [saleProduct, setSaleProduct] = useState(
+    "5-Gallon Purified Water Refill",
+  );
+  const [saleQuantity, setSaleQuantity] = useState("1");
+  const [saleAmount, setSaleAmount] = useState("50.00");
+  const [salePaymentMethod, setSalePaymentMethod] = useState("Cash");
+
+  const handleRecordSaleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateName(saleCustomer)) {
+      showToast(
+        "Buyer name cannot contain numbers or invalid symbols!",
+        "error",
+      );
+      return;
+    }
+    const newTxn = {
+      TransactionID: `TXN-10${salesRecords.length + 1}`,
+      CustomerName: saleCustomer,
+      ItemName: saleProduct,
+      Quantity: Number(saleQuantity),
+      TotalAmount: `₱${Number(saleAmount).toFixed(2)}`,
+      PaymentMethod: salePaymentMethod,
+      Date: new Date().toISOString().split("T")[0],
+    };
+    setSalesRecords([newTxn, ...salesRecords]);
+    setIsRecordSaleOpen(false);
+    setSaleCustomer("Walk-in Customer");
+    setSaleQuantity("1");
+    setSaleAmount("50.00");
+    addAuditLog(
+      adminName,
+      `Recorded sales transaction ${newTxn.TransactionID} for ${saleCustomer}`,
+      "sale",
+    );
+    showToast("Sales transaction recorded successfully!", "success");
+  };
+
+  // ================= 2. STAFF & DRIVERS STATE =================
+  const [staffList, setStaffList] = useState([
+    {
+      StaffID: 1,
+      LastName: "Binamira",
+      FirstName: "Terrenze Josh",
+      MiddleName: "M.",
+      Suffix: "",
+      Role: "Admin",
+      ContactNumber: "+639123456789",
+      Email: "terrenze@aquawell.com",
+    },
+    {
+      StaffID: 2,
+      LastName: "Colarina",
+      FirstName: "Malbert",
+      MiddleName: "P.",
+      Suffix: "",
+      Role: "Staff",
+      ContactNumber: "09198765432",
+      Email: "malbert@aquawell.com",
+    },
+    {
+      StaffID: 3,
+      LastName: "Perez",
+      FirstName: "Junmar",
+      MiddleName: "S.",
+      Suffix: "",
+      Role: "Delivery",
+      ContactNumber: "09171112233",
+      Email: "junmar@aquawell.com",
+    },
+    {
+      StaffID: 4,
+      LastName: "Juan",
+      FirstName: "Rider",
+      MiddleName: "D.",
+      Suffix: "",
+      Role: "Delivery",
+      ContactNumber: "09203334455",
+      Email: "juan.rider@aquawell.com",
+    },
+  ]);
+
+  const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<any | null>(null);
+  const [selectedStaffDetails, setSelectedStaffDetails] = useState<any | null>(
+    null,
+  );
+  const [newStaffFirstName, setNewStaffFirstName] = useState("");
+  const [newStaffLastName, setNewStaffLastName] = useState("");
+  const [newStaffMiddleName, setNewStaffMiddleName] = useState("");
+  const [newStaffSuffix, setNewStaffSuffix] = useState("");
+  const [newStaffRole, setNewStaffRole] = useState("Delivery");
+  const [newStaffContact, setNewStaffContact] = useState("");
+  const [newStaffEmail, setNewStaffEmail] = useState("");
+
+  const handleAddStaff = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateName(newStaffFirstName) || !validateName(newStaffLastName)) {
+      showToast(
+        "Staff names cannot contain numbers or invalid symbols!",
+        "error",
+      );
+      return;
+    }
+    if (!validatePhoneNumber(newStaffContact)) {
+      showToast(
+        "Invalid Philippine mobile number format! Use 09XXXXXXXXX or +639XXXXXXXXX",
+        "error",
+      );
+      return;
+    }
+
+    if (editingStaff) {
+      setStaffList(
+        staffList.map((s) =>
+          s.StaffID === editingStaff.StaffID
+            ? {
+                ...s,
+                FirstName: newStaffFirstName,
+                LastName: newStaffLastName,
+                MiddleName: newStaffMiddleName,
+                Suffix: newStaffSuffix,
+                Role: newStaffRole,
+                ContactNumber: newStaffContact,
+                Email: newStaffEmail,
+              }
+            : s,
+        ),
+      );
+      addAuditLog(
+        adminName,
+        `Updated staff member: ${newStaffFirstName} ${newStaffLastName} (${newStaffRole})`,
+        "staff",
+      );
+      showToast("Staff member updated successfully!", "success");
+    } else {
+      const newStaffEntry = {
+        StaffID: staffList.length + 1,
+        FirstName: newStaffFirstName,
+        LastName: newStaffLastName,
+        MiddleName: newStaffMiddleName,
+        Suffix: newStaffSuffix,
+        Role: newStaffRole,
+        ContactNumber: newStaffContact,
+        Email: newStaffEmail,
+      };
+      setStaffList([newStaffEntry, ...staffList]);
+      addAuditLog(
+        adminName,
+        `Added new staff member: ${newStaffFirstName} ${newStaffLastName} (${newStaffRole})`,
+        "staff",
+      );
+      showToast("Staff member added successfully!", "success");
+    }
+    setIsAddStaffOpen(false);
+    setEditingStaff(null);
+    setNewStaffFirstName("");
+    setNewStaffLastName("");
+    setNewStaffMiddleName("");
+    setNewStaffSuffix("");
+    setNewStaffRole("Delivery");
+    setNewStaffContact("");
+    setNewStaffEmail("");
+  };
+
+  const handleOpenEditStaff = (stf: any) => {
+    setEditingStaff(stf);
+    setNewStaffFirstName(stf.FirstName);
+    setNewStaffLastName(stf.LastName);
+    setNewStaffMiddleName(stf.MiddleName || "");
+    setNewStaffSuffix(stf.Suffix || "");
+    setNewStaffRole(stf.Role);
+    setNewStaffContact(stf.ContactNumber);
+    setNewStaffEmail(stf.Email || "");
+    setIsAddStaffOpen(true);
+  };
+
+  const handleDeleteStaff = (id: number) => {
+    setStaffList(staffList.filter((s) => s.StaffID !== id));
+    addAuditLog(adminName, `Removed staff member ID ${id}`, "staff");
+    showToast("Staff member removed", "success");
+  };
+
+  // ================= 3. ORDERS STATE =================
   const [orders, setOrders] = useState([
     {
       id: "ORD-001",
       customer: "John Doe",
-      phone: "+1234567891",
+      phone: "+639123456789",
       type: "Delivery",
       date: "3/10/2026",
       total: "₱100.00",
       status: "DELIVERED",
       rider: "Rider Juan",
+      paymentStatus: "PAID - CASH",
     },
     {
       id: "ORD-002",
       customer: "Maria Santos",
-      phone: "+63 918 765 4321",
+      phone: "09187654321",
       type: "Delivery",
       date: "3/15/2026",
       total: "₱104.00",
       status: "OUT FOR-DELIVERY",
       rider: "Junmar Perez",
+      paymentStatus: "PAID - GCASH",
     },
   ]);
 
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [assigningOrder, setAssigningOrder] = useState<any | null>(null);
+  const [selectedRiderName, setSelectedRiderName] = useState("");
+
+  const handleAssignRiderSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assigningOrder) return;
+
+    setOrders(
+      orders.map((ord) =>
+        ord.id === assigningOrder.id
+          ? { ...ord, rider: selectedRiderName, status: "OUT FOR-DELIVERY" }
+          : ord,
+      ),
+    );
+    addAuditLog(
+      adminName,
+      `Assigned driver ${selectedRiderName} to order ${assigningOrder.id}`,
+      "assignment",
+    );
+    showToast(
+      `Successfully assigned ${selectedRiderName} to order ${assigningOrder.id}`,
+      "success",
+    );
+    setAssigningOrder(null);
+    setSelectedRiderName("");
+  };
 
   const handleDeleteOrder = (id: string) => {
     setOrders(orders.filter((o) => o.id !== id));
+    addAuditLog(adminName, `Deleted order record ${id}`, "delete");
     showToast(`Order ${id} removed successfully`, "success");
   };
 
@@ -154,6 +489,11 @@ export default function AdminDashboard() {
               : ord.status === "OUT FOR-DELIVERY"
                 ? "DELIVERED"
                 : "PENDING";
+          addAuditLog(
+            adminName,
+            `Cycled fulfillment status for ${id} to ${nextStatus}`,
+            "status",
+          );
           return { ...ord, status: nextStatus };
         }
         return ord;
@@ -162,15 +502,39 @@ export default function AdminDashboard() {
     showToast(`Updated status for order ${id}`, "success");
   };
 
-  // ================= 2. PRODUCTS CRUD STATE & MODALS =================
+  const handleTogglePaymentStatus = (id: string) => {
+    setOrders(
+      orders.map((ord) => {
+        if (ord.id === id) {
+          const nextPay =
+            ord.paymentStatus === "UNPAID"
+              ? "PAID - CASH"
+              : ord.paymentStatus === "PAID - CASH"
+                ? "PAID - GCASH"
+                : "UNPAID";
+          addAuditLog(
+            adminName,
+            `Updated payment verification for ${id} to ${nextPay}`,
+            "payment",
+          );
+          return { ...ord, paymentStatus: nextPay };
+        }
+        return ord;
+      }),
+    );
+    showToast(`Updated payment status for ${id}`, "success");
+  };
+
+  // ================= 4. PRODUCTS STATE =================
   const [products, setProducts] = useState([
     {
       id: 1,
       name: "5-Gallon Purified Water Refill",
       category: "Refill",
       price: "₱50.00",
-      stock: 120,
-      status: "In Stock",
+      stock: 8,
+      minStock: 15,
+      status: "Low Stock",
     },
     {
       id: 2,
@@ -178,20 +542,25 @@ export default function AdminDashboard() {
       category: "Hardware",
       price: "₱250.00",
       stock: 15,
+      minStock: 5,
       status: "In Stock",
     },
   ]);
 
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
-
   const [newProdName, setNewProdName] = useState("");
   const [newProdCategory, setNewProdCategory] = useState("Refill");
   const [newProdPrice, setNewProdPrice] = useState("");
   const [newProdStock, setNewProdStock] = useState("");
+  const [newProdMinStock, setNewProdMinStock] = useState("10");
 
   const handleAddProduct = (e: React.FormEvent) => {
     e.preventDefault();
+    const stockNum = Number(newProdStock);
+    const minStockNum = Number(newProdMinStock);
+    const stockStatus = stockNum <= minStockNum ? "Low Stock" : "In Stock";
+
     if (editingProduct) {
       setProducts(
         products.map((p) =>
@@ -201,11 +570,17 @@ export default function AdminDashboard() {
                 name: newProdName,
                 category: newProdCategory,
                 price: `₱${Number(newProdPrice).toFixed(2)}`,
-                stock: Number(newProdStock),
-                status: Number(newProdStock) > 0 ? "In Stock" : "Out of Stock",
+                stock: stockNum,
+                minStock: minStockNum,
+                status: stockStatus,
               }
             : p,
         ),
+      );
+      addAuditLog(
+        adminName,
+        `Updated inventory item: ${newProdName}`,
+        "inventory",
       );
       showToast("Product updated successfully!", "success");
     } else {
@@ -214,10 +589,16 @@ export default function AdminDashboard() {
         name: newProdName,
         category: newProdCategory,
         price: `₱${Number(newProdPrice).toFixed(2)}`,
-        stock: Number(newProdStock),
-        status: Number(newProdStock) > 0 ? "In Stock" : "Out of Stock",
+        stock: stockNum,
+        minStock: minStockNum,
+        status: stockStatus,
       };
       setProducts([...products, newProduct]);
+      addAuditLog(
+        adminName,
+        `Added new product to inventory: ${newProdName}`,
+        "inventory",
+      );
       showToast("Product added to inventory successfully!", "success");
     }
     setIsAddProductOpen(false);
@@ -225,6 +606,7 @@ export default function AdminDashboard() {
     setNewProdName("");
     setNewProdPrice("");
     setNewProdStock("");
+    setNewProdMinStock("10");
   };
 
   const handleOpenEditProduct = (prod: any) => {
@@ -233,23 +615,26 @@ export default function AdminDashboard() {
     setNewProdCategory(prod.category);
     setNewProdPrice(prod.price.replace("₱", ""));
     setNewProdStock(prod.stock);
+    setNewProdMinStock(prod.minStock || 10);
     setIsAddProductOpen(true);
   };
 
   const handleDeleteProduct = (id: number) => {
     setProducts(products.filter((p) => p.id !== id));
+    addAuditLog(adminName, `Removed inventory item ID ${id}`, "inventory");
     showToast("Product removed from inventory", "success");
   };
 
-  // ================= 3. CUSTOMER DIRECTORY CRUD STATE & MODALS =================
+  // ================= 5. CUSTOMERS STATE =================
   const [customers, setCustomers] = useState([
     {
       CustomerID: 1,
       LastName: "Doe",
       FirstName: "John",
       MiddleName: "A.",
+      Suffix: "",
       Address: "Padang, Legazpi City, Albay",
-      ContactNumber: "+63 912 345 6789",
+      ContactNumber: "+639123456789",
       Email: "john.doe@example.com",
     },
     {
@@ -257,8 +642,9 @@ export default function AdminDashboard() {
       LastName: "Santos",
       FirstName: "Maria",
       MiddleName: "B.",
+      Suffix: "",
       Address: "Rawis, Legazpi City, Albay",
-      ContactNumber: "+63 918 765 4321",
+      ContactNumber: "09187654321",
       Email: "maria.santos@example.com",
     },
   ]);
@@ -266,16 +652,31 @@ export default function AdminDashboard() {
   const [customerSearch, setCustomerSearch] = useState("");
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<any | null>(null);
-
   const [newCustFirstName, setNewCustFirstName] = useState("");
   const [newCustLastName, setNewCustLastName] = useState("");
   const [newCustMiddleName, setNewCustMiddleName] = useState("");
+  const [newCustSuffix, setNewCustSuffix] = useState("");
   const [newCustAddress, setNewCustAddress] = useState("");
   const [newCustContact, setNewCustContact] = useState("");
   const [newCustEmail, setNewCustEmail] = useState("");
 
   const handleAddCustomer = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateName(newCustFirstName) || !validateName(newCustLastName)) {
+      showToast(
+        "Customer names cannot contain numbers or invalid symbols!",
+        "error",
+      );
+      return;
+    }
+    if (!validatePhoneNumber(newCustContact)) {
+      showToast(
+        "Invalid Philippine mobile number format! Use 09XXXXXXXXX or +639XXXXXXXXX",
+        "error",
+      );
+      return;
+    }
+
     if (editingCustomer) {
       setCustomers(
         customers.map((c) =>
@@ -285,12 +686,18 @@ export default function AdminDashboard() {
                 FirstName: newCustFirstName,
                 LastName: newCustLastName,
                 MiddleName: newCustMiddleName,
+                Suffix: newCustSuffix,
                 Address: newCustAddress,
                 ContactNumber: newCustContact,
                 Email: newCustEmail,
               }
             : c,
         ),
+      );
+      addAuditLog(
+        adminName,
+        `Updated customer profile: ${newCustFirstName} ${newCustLastName}`,
+        "customer",
       );
       showToast("Customer account updated successfully!", "success");
     } else {
@@ -299,11 +706,17 @@ export default function AdminDashboard() {
         FirstName: newCustFirstName,
         LastName: newCustLastName,
         MiddleName: newCustMiddleName,
+        Suffix: newCustSuffix,
         Address: newCustAddress,
         ContactNumber: newCustContact,
         Email: newCustEmail,
       };
       setCustomers([newEntry, ...customers]);
+      addAuditLog(
+        adminName,
+        `Registered new customer: ${newCustFirstName} ${newCustLastName}`,
+        "customer",
+      );
       showToast("Customer registered successfully!", "success");
     }
     setIsAddCustomerOpen(false);
@@ -311,6 +724,7 @@ export default function AdminDashboard() {
     setNewCustFirstName("");
     setNewCustLastName("");
     setNewCustMiddleName("");
+    setNewCustSuffix("");
     setNewCustAddress("");
     setNewCustContact("");
     setNewCustEmail("");
@@ -320,7 +734,8 @@ export default function AdminDashboard() {
     setEditingCustomer(cust);
     setNewCustFirstName(cust.FirstName);
     setNewCustLastName(cust.LastName);
-    setNewCustMiddleName(cust.MiddleName);
+    setNewCustMiddleName(cust.MiddleName || "");
+    setNewCustSuffix(cust.Suffix || "");
     setNewCustAddress(cust.Address);
     setNewCustContact(cust.ContactNumber);
     setNewCustEmail(cust.Email);
@@ -329,6 +744,7 @@ export default function AdminDashboard() {
 
   const handleDeleteCustomer = (id: number) => {
     setCustomers(customers.filter((c) => c.CustomerID !== id));
+    addAuditLog(adminName, `Removed customer account ID ${id}`, "customer");
     showToast("Customer account removed", "success");
   };
 
@@ -338,100 +754,6 @@ export default function AdminDashboard() {
       c.LastName.toLowerCase().includes(customerSearch.toLowerCase()) ||
       c.Email.toLowerCase().includes(customerSearch.toLowerCase()),
   );
-
-  // ================= 4. STAFF & DRIVERS CRUD STATE & MODALS =================
-  const [staffList, setStaffList] = useState([
-    {
-      StaffID: 1,
-      LastName: "Binamira",
-      FirstName: "Terrenze Josh",
-      MiddleName: "M.",
-      Role: "Admin",
-      ContactNumber: "+63 912 345 6789",
-    },
-    {
-      StaffID: 2,
-      LastName: "Colarina",
-      FirstName: "Malbert",
-      MiddleName: "P.",
-      Role: "Staff",
-      ContactNumber: "+63 919 876 5432",
-    },
-    {
-      StaffID: 3,
-      LastName: "Perez",
-      FirstName: "Junmar",
-      MiddleName: "S.",
-      Role: "Delivery",
-      ContactNumber: "+63 917 111 2233",
-    },
-  ]);
-
-  const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
-  const [editingStaff, setEditingStaff] = useState<any | null>(null);
-  const [selectedStaffDetails, setSelectedStaffDetails] = useState<any | null>(
-    null,
-  );
-
-  const [newStaffFirstName, setNewStaffFirstName] = useState("");
-  const [newStaffLastName, setNewStaffLastName] = useState("");
-  const [newStaffMiddleName, setNewStaffMiddleName] = useState("");
-  const [newStaffRole, setNewStaffRole] = useState("Delivery");
-  const [newStaffContact, setNewStaffContact] = useState("");
-
-  const handleAddStaff = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingStaff) {
-      setStaffList(
-        staffList.map((s) =>
-          s.StaffID === editingStaff.StaffID
-            ? {
-                ...s,
-                FirstName: newStaffFirstName,
-                LastName: newStaffLastName,
-                MiddleName: newStaffMiddleName,
-                Role: newStaffRole,
-                ContactNumber: newStaffContact,
-              }
-            : s,
-        ),
-      );
-      showToast("Staff member updated successfully!", "success");
-    } else {
-      const newStaffEntry = {
-        StaffID: staffList.length + 1,
-        FirstName: newStaffFirstName,
-        LastName: newStaffLastName,
-        MiddleName: newStaffMiddleName,
-        Role: newStaffRole,
-        ContactNumber: newStaffContact,
-      };
-      setStaffList([newStaffEntry, ...staffList]);
-      showToast("Staff member added successfully!", "success");
-    }
-    setIsAddStaffOpen(false);
-    setEditingStaff(null);
-    setNewStaffFirstName("");
-    setNewStaffLastName("");
-    setNewStaffMiddleName("");
-    setNewStaffRole("Delivery");
-    setNewStaffContact("");
-  };
-
-  const handleOpenEditStaff = (stf: any) => {
-    setEditingStaff(stf);
-    setNewStaffFirstName(stf.FirstName);
-    setNewStaffLastName(stf.LastName);
-    setNewStaffMiddleName(stf.MiddleName);
-    setNewStaffRole(stf.Role);
-    setNewStaffContact(stf.ContactNumber);
-    setIsAddStaffOpen(true);
-  };
-
-  const handleDeleteStaff = (id: number) => {
-    setStaffList(staffList.filter((s) => s.StaffID !== id));
-    showToast("Staff member removed", "success");
-  };
 
   // Forecast state
   const [forecastList] = useState([
@@ -457,7 +779,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-50 text-slate-900 flex font-sans selection:bg-blue-500 selection:text-white relative">
       {/* Toast Notification Banner */}
       {toast.show && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center space-x-3 bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl border border-slate-800 animate-bounce">
+        <div className="fixed bottom-6 right-6 z-[100] flex items-center space-x-3 bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl border border-slate-800 animate-bounce">
           {toast.type === "success" ? (
             <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
           ) : (
@@ -469,7 +791,306 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ================= MODALS FOR FULL CRUD OPERATIONS ================= */}
+      {/* ================= MODALS ================= */}
+
+      {/* Customer Order History Modal */}
+      {viewingCustomerHistory && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] border border-slate-200 shadow-2xl max-w-lg w-full p-8 space-y-6 animate-fadeIn">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-xl font-black text-slate-900">
+                  Customer Order History
+                </h3>
+                <p className="text-xs font-bold text-blue-600">
+                  {viewingCustomerHistory.FirstName}{" "}
+                  {viewingCustomerHistory.LastName}{" "}
+                  {viewingCustomerHistory.Suffix} (
+                  {viewingCustomerHistory.Email})
+                </p>
+              </div>
+              <button
+                onClick={() => setViewingCustomerHistory(null)}
+                className="text-sm font-bold text-slate-400 hover:text-slate-700"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex justify-between items-center">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-blue-500 block">
+                    Lifetime Value (LTV)
+                  </span>
+                  <span className="text-2xl font-black text-blue-900">
+                    ₱150.00
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-bold uppercase tracking-wider text-blue-500 block">
+                    Total Orders Placed
+                  </span>
+                  <span className="text-2xl font-black text-blue-900">
+                    2 Orders
+                  </span>
+                </div>
+              </div>
+
+              <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider pt-2">
+                Frequent Order Logs
+              </h4>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {orders
+                  .filter(
+                    (o) =>
+                      o.customer
+                        .toLowerCase()
+                        .includes(
+                          viewingCustomerHistory.LastName.toLowerCase(),
+                        ) ||
+                      o.customer
+                        .toLowerCase()
+                        .includes(
+                          viewingCustomerHistory.FirstName.toLowerCase(),
+                        ),
+                  )
+                  .concat(
+                    salesRecords
+                      .filter(
+                        (s) =>
+                          s.CustomerName.toLowerCase().includes(
+                            viewingCustomerHistory.LastName.toLowerCase(),
+                          ) ||
+                          s.CustomerName.toLowerCase().includes(
+                            viewingCustomerHistory.FirstName.toLowerCase(),
+                          ),
+                      )
+                      .map((s) => ({
+                        id: s.TransactionID,
+                        customer: s.CustomerName,
+                        total: s.TotalAmount,
+                        date: s.Date,
+                        status: "COMPLETED",
+                      })),
+                  )
+                  .map((item: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="flex justify-between items-center p-3.5 bg-slate-50 rounded-xl border border-slate-100 text-sm font-bold"
+                    >
+                      <div>
+                        <span className="text-blue-600 font-black block">
+                          {item.id}
+                        </span>
+                        <span className="text-xs text-slate-400 font-medium">
+                          {item.date || "3/10/2026"}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-slate-900 font-black block">
+                          {item.total || "₱50.00"}
+                        </span>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">
+                          {item.status || "DELIVERED"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setViewingCustomerHistory(null)}
+              className="w-full py-3 bg-slate-900 text-white rounded-xl font-black text-sm cursor-pointer"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Record Sales Transaction Modal */}
+      {isRecordSaleOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] border border-slate-200 shadow-2xl max-w-md w-full p-8 space-y-6 animate-fadeIn">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+              <h3 className="text-xl font-black text-slate-900 flex items-center space-x-2">
+                <Receipt className="h-5 w-5 text-blue-600" />
+                <span>Record Sales Transaction</span>
+              </h3>
+              <button
+                onClick={() => setIsRecordSaleOpen(false)}
+                className="text-sm font-bold text-slate-400 hover:text-slate-700"
+              >
+                Close
+              </button>
+            </div>
+            <form onSubmit={handleRecordSaleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Customer / Buyer
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={saleCustomer}
+                  onChange={(e) => setSaleCustomer(e.target.value)}
+                  placeholder="Walk-in Customer or Name"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Product Item
+                </label>
+                <select
+                  value={saleProduct}
+                  onChange={(e) => {
+                    setSaleProduct(e.target.value);
+                    if (e.target.value.includes("Refill")) {
+                      setSaleAmount("50.00");
+                    } else {
+                      setSaleAmount("250.00");
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none cursor-pointer"
+                >
+                  {products.map((p) => (
+                    <option key={p.id} value={p.name}>
+                      {p.name} ({p.price})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                    Quantity
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={saleQuantity}
+                    onChange={(e) => {
+                      setSaleQuantity(e.target.value);
+                      const base = saleProduct.includes("Refill") ? 50 : 250;
+                      setSaleAmount((base * Number(e.target.value)).toFixed(2));
+                    }}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                    Total Amount (₱)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={saleAmount}
+                    onChange={(e) => setSaleAmount(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Payment Method
+                </label>
+                <select
+                  value={salePaymentMethod}
+                  onChange={(e) => setSalePaymentMethod(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none cursor-pointer"
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="GCash">GCash</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                </select>
+              </div>
+
+              <div className="pt-4 flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setIsRecordSaleOpen(false)}
+                  className="w-1/2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="w-1/2 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-sm cursor-pointer shadow-lg shadow-blue-500/20"
+                >
+                  Save Transaction
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Rider Modal */}
+      {assigningOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] border border-slate-200 shadow-2xl max-w-md w-full p-8 space-y-6 animate-fadeIn">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+              <h3 className="text-xl font-black text-slate-900">
+                Assign Driver for ({assigningOrder.id})
+              </h3>
+              <button
+                onClick={() => setAssigningOrder(null)}
+                className="text-sm font-bold text-slate-400 hover:text-slate-700"
+              >
+                Close
+              </button>
+            </div>
+            <form onSubmit={handleAssignRiderSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                  Select Available Delivery Rider / Staff
+                </label>
+                <select
+                  required
+                  value={selectedRiderName}
+                  onChange={(e) => setSelectedRiderName(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none cursor-pointer"
+                >
+                  <option value="">-- Choose Rider --</option>
+                  {staffList
+                    .filter((s) => s.Role === "Delivery" || s.Role === "Staff")
+                    .map((s) => {
+                      const fullName = `${s.FirstName} ${s.LastName}`;
+                      return (
+                        <option key={s.StaffID} value={fullName}>
+                          {fullName} ({s.Role})
+                        </option>
+                      );
+                    })}
+                </select>
+              </div>
+              <div className="pt-4 flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setAssigningOrder(null)}
+                  className="w-1/2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="w-1/2 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-sm cursor-pointer shadow-lg shadow-blue-500/20"
+                >
+                  Assign Rider
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Order Details View Modal */}
       {selectedOrder && (
@@ -529,6 +1150,14 @@ export default function AdminDashboard() {
               </div>
               <div className="flex justify-between py-2 border-b border-slate-100">
                 <span className="font-bold text-slate-400 uppercase">
+                  Payment Status:
+                </span>
+                <span className="font-black text-purple-600">
+                  {selectedOrder.paymentStatus}
+                </span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-slate-100">
+                <span className="font-bold text-slate-400 uppercase">
                   Fulfillment Status:
                 </span>
                 <span className="font-black text-emerald-600">
@@ -539,8 +1168,8 @@ export default function AdminDashboard() {
                 <span className="font-bold text-slate-400 uppercase">
                   Assigned Driver / Rider:
                 </span>
-                <span className="font-bold text-slate-900">
-                  {selectedOrder.rider}
+                <span className="font-bold text-blue-600">
+                  {selectedOrder.rider || "Unassigned"}
                 </span>
               </div>
             </div>
@@ -577,7 +1206,8 @@ export default function AdminDashboard() {
                 <span className="font-black text-slate-900">
                   {selectedStaffDetails.LastName},{" "}
                   {selectedStaffDetails.FirstName}{" "}
-                  {selectedStaffDetails.MiddleName}
+                  {selectedStaffDetails.MiddleName}{" "}
+                  {selectedStaffDetails.Suffix}
                 </span>
               </div>
               <div className="flex justify-between py-2 border-b border-slate-100">
@@ -586,6 +1216,14 @@ export default function AdminDashboard() {
                 </span>
                 <span className="font-bold text-blue-600">
                   {selectedStaffDetails.Role}
+                </span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-slate-100">
+                <span className="font-bold text-slate-400 uppercase">
+                  Login Email:
+                </span>
+                <span className="font-bold text-blue-600">
+                  {selectedStaffDetails.Email || "No Email Provided"}
                 </span>
               </div>
               <div className="flex justify-between py-2">
@@ -648,16 +1286,16 @@ export default function AdminDashboard() {
                 <select
                   value={newProdCategory}
                   onChange={(e) => setNewProdCategory(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none cursor-pointer"
                 >
                   <option value="Refill">Refill</option>
                   <option value="Hardware">Hardware</option>
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Unit Price (₱)
+                    Price (₱)
                   </label>
                   <input
                     type="number"
@@ -671,7 +1309,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Stock Level
+                    Stock
                   </label>
                   <input
                     type="number"
@@ -679,6 +1317,19 @@ export default function AdminDashboard() {
                     value={newProdStock}
                     onChange={(e) => setNewProdStock(e.target.value)}
                     placeholder="100"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                    Min Alert
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={newProdMinStock}
+                    onChange={(e) => setNewProdMinStock(e.target.value)}
+                    placeholder="10"
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
                   />
                 </div>
@@ -725,7 +1376,7 @@ export default function AdminDashboard() {
               </button>
             </div>
             <form onSubmit={handleAddCustomer} className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-2">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
                     First Name
@@ -735,18 +1386,18 @@ export default function AdminDashboard() {
                     required
                     value={newCustFirstName}
                     onChange={(e) => setNewCustFirstName(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
+                    className={`w-full px-3 py-3 bg-slate-50 border rounded-xl text-sm font-bold text-slate-900 outline-none ${newCustFirstName && !validateName(newCustFirstName) ? "border-rose-300 bg-rose-50/30" : "border-slate-200"}`}
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Middle Name
+                    Middle
                   </label>
                   <input
                     type="text"
                     value={newCustMiddleName}
                     onChange={(e) => setNewCustMiddleName(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
+                    className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
                   />
                 </div>
                 <div>
@@ -758,7 +1409,19 @@ export default function AdminDashboard() {
                     required
                     value={newCustLastName}
                     onChange={(e) => setNewCustLastName(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
+                    className={`w-full px-3 py-3 bg-slate-50 border rounded-xl text-sm font-bold text-slate-900 outline-none ${newCustLastName && !validateName(newCustLastName) ? "border-rose-300 bg-rose-50/30" : "border-slate-200"}`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                    Suffix
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Jr., III"
+                    value={newCustSuffix}
+                    onChange={(e) => setNewCustSuffix(e.target.value)}
+                    className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
                   />
                 </div>
               </div>
@@ -777,16 +1440,21 @@ export default function AdminDashboard() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Contact Number
-                  </label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-bold text-slate-500 uppercase">
+                      Contact Number
+                    </label>
+                    <span className="text-[10px] text-blue-600 font-bold">
+                      09xx or +639xx
+                    </span>
+                  </div>
                   <input
                     type="text"
                     required
-                    placeholder="+63 9..."
+                    placeholder="09171234567"
                     value={newCustContact}
                     onChange={(e) => setNewCustContact(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
+                    className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm font-bold text-slate-900 outline-none transition ${newCustContact && !validatePhoneNumber(newCustContact) ? "border-rose-300 bg-rose-50/30" : "border-slate-200"}`}
                   />
                 </div>
                 <div>
@@ -829,7 +1497,7 @@ export default function AdminDashboard() {
       {/* Add/Edit Staff Modal */}
       {isAddStaffOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[32px] border border-slate-200 shadow-2xl max-w-md w-full p-8 space-y-6 animate-fadeIn">
+          <div className="bg-white rounded-[32px] border border-slate-200 shadow-2xl max-w-lg w-full p-8 space-y-6 animate-fadeIn">
             <div className="flex justify-between items-center border-b border-slate-100 pb-4">
               <h3 className="text-xl font-black text-slate-900">
                 {editingStaff ? "Edit Staff Member" : "Add Staff Member"}
@@ -845,7 +1513,7 @@ export default function AdminDashboard() {
               </button>
             </div>
             <form onSubmit={handleAddStaff} className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-2">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
                     First Name
@@ -855,7 +1523,7 @@ export default function AdminDashboard() {
                     required
                     value={newStaffFirstName}
                     onChange={(e) => setNewStaffFirstName(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
+                    className={`w-full px-3 py-3 bg-slate-50 border rounded-xl text-sm font-bold text-slate-900 outline-none ${newStaffFirstName && !validateName(newStaffFirstName) ? "border-rose-300 bg-rose-50/30" : "border-slate-200"}`}
                   />
                 </div>
                 <div>
@@ -866,7 +1534,7 @@ export default function AdminDashboard() {
                     type="text"
                     value={newStaffMiddleName}
                     onChange={(e) => setNewStaffMiddleName(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
+                    className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
                   />
                 </div>
                 <div>
@@ -878,34 +1546,66 @@ export default function AdminDashboard() {
                     required
                     value={newStaffLastName}
                     onChange={(e) => setNewStaffLastName(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
+                    className={`w-full px-3 py-3 bg-slate-50 border rounded-xl text-sm font-bold text-slate-900 outline-none ${newStaffLastName && !validateName(newStaffLastName) ? "border-rose-300 bg-rose-50/30" : "border-slate-200"}`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                    Suffix
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Jr., III"
+                    value={newStaffSuffix}
+                    onChange={(e) => setNewStaffSuffix(e.target.value)}
+                    className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                    Role
+                  </label>
+                  <select
+                    value={newStaffRole}
+                    onChange={(e) => setNewStaffRole(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none cursor-pointer"
+                  >
+                    <option value="Admin">Admin</option>
+                    <option value="Staff">Staff</option>
+                    <option value="Delivery">Delivery / Rider</option>
+                  </select>
+                </div>
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-bold text-slate-500 uppercase">
+                      Contact
+                    </label>
+                    <span className="text-[10px] text-blue-600 font-bold">
+                      09xx/ +639xx
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder="0917..."
+                    value={newStaffContact}
+                    onChange={(e) => setNewStaffContact(e.target.value)}
+                    className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm font-bold text-slate-900 outline-none transition ${newStaffContact && !validatePhoneNumber(newStaffContact) ? "border-rose-300 bg-rose-50/30" : "border-slate-200"}`}
                   />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                  Role / Designation
-                </label>
-                <select
-                  value={newStaffRole}
-                  onChange={(e) => setNewStaffRole(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
-                >
-                  <option value="Admin">Admin</option>
-                  <option value="Staff">Staff</option>
-                  <option value="Delivery">Delivery / Rider</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                  Contact Number
+                  Login Email Address
                 </label>
                 <input
-                  type="text"
+                  type="email"
                   required
-                  placeholder="+63 9..."
-                  value={newStaffContact}
-                  onChange={(e) => setNewStaffContact(e.target.value)}
+                  placeholder="staff@aquawell.com"
+                  value={newStaffEmail}
+                  onChange={(e) => setNewStaffEmail(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none"
                 />
               </div>
@@ -1187,7 +1887,8 @@ export default function AdminDashboard() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-slate-50">
-        <div className="px-8 lg:px-12 pt-8 pb-2 flex justify-between items-center">
+        {/* Top Header with Swapped Elements (Quick Search First, Bell Second) */}
+        <div className="px-8 lg:px-12 pt-8 pb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-5xl font-black text-slate-900 tracking-tight">
               {activeTab === "dashboard" && "Admin Dashboard"}
@@ -1201,13 +1902,215 @@ export default function AdminDashboard() {
               Manage complete station operations with full CRUD interactivity.
             </p>
           </div>
+
+          <div className="flex items-center space-x-3 w-full sm:w-auto justify-end">
+            {/* Global Command Palette Bar (First) */}
+            <div className="relative w-full sm:w-64">
+              <Command className="absolute left-4 top-3.5 h-4 w-4 text-blue-600" />
+              <input
+                type="text"
+                placeholder="Quick search..."
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-bold text-slate-900 outline-none shadow-sm focus:border-blue-500 transition"
+              />
+            </div>
+
+            {/* Notifications Dropdown Bell (Second) */}
+            <div className="relative" ref={notifRef}>
+              <button
+                type="button"
+                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                className="relative p-3 bg-white hover:bg-slate-100 border border-slate-200 rounded-2xl text-slate-700 transition cursor-pointer shadow-sm"
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white rounded-full font-black text-[10px] flex items-center justify-center border-2 border-white animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {isNotificationsOpen && (
+                <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white rounded-[24px] border border-slate-200 shadow-2xl p-5 z-50 space-y-4 animate-fadeIn">
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <div className="flex items-center space-x-2">
+                      <Bell className="h-4 w-4 text-blue-600" />
+                      <span className="font-black text-sm text-slate-900">
+                        Notifications ({unreadCount} new)
+                      </span>
+                    </div>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markAllNotificationsAsRead}
+                        className="text-xs font-bold text-blue-600 hover:underline flex items-center space-x-1"
+                      >
+                        <Check className="h-3 w-3" />
+                        <span>Mark read</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 max-h-72 overflow-y-auto">
+                    {notifications.map((n) => (
+                      <div
+                        key={n.id}
+                        className={`p-3.5 rounded-2xl border transition ${n.unread ? "bg-blue-50/50 border-blue-100" : "bg-slate-50 border-slate-100 opacity-75"}`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <span className="text-xs font-black text-slate-900 block">
+                            {n.title}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {n.time}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-1 font-medium">
+                          {n.desc}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <main className="p-8 lg:p-12 pt-4 max-w-[1600px] w-full mx-auto flex-1 space-y-8">
+          {/* Global Search Results Overlay */}
+          {globalSearch && (
+            <div className="bg-blue-50 border border-blue-200 p-6 rounded-[28px] space-y-4 animate-fadeIn">
+              <div className="flex justify-between items-center">
+                <h4 className="text-sm font-black text-blue-900 uppercase tracking-wider flex items-center space-x-2">
+                  <Search className="h-4 w-4 text-blue-600" />
+                  <span>
+                    Command Palette Search Results for "{globalSearch}"
+                  </span>
+                </h4>
+                <button
+                  onClick={() => setGlobalSearch("")}
+                  className="text-xs font-bold text-blue-600 hover:underline"
+                >
+                  Clear Search
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-4 rounded-2xl border border-blue-100 shadow-sm space-y-2">
+                  <span className="text-xs font-black uppercase text-slate-400">
+                    Customers Found
+                  </span>
+                  {customers
+                    .filter((c) =>
+                      `${c.FirstName} ${c.LastName} ${c.Email}`
+                        .toLowerCase()
+                        .includes(globalSearch.toLowerCase()),
+                    )
+                    .map((c) => (
+                      <div
+                        key={c.CustomerID}
+                        className="text-sm font-bold text-slate-900 flex justify-between"
+                      >
+                        <span>
+                          {c.FirstName} {c.LastName}
+                        </span>
+                        <button
+                          onClick={() => {
+                            setActiveTab("customers");
+                            setCustomerSearch(c.LastName);
+                          }}
+                          className="text-blue-600 text-xs"
+                        >
+                          View
+                        </button>
+                      </div>
+                    ))}
+                  {customers.filter((c) =>
+                    `${c.FirstName} ${c.LastName} ${c.Email}`
+                      .toLowerCase()
+                      .includes(globalSearch.toLowerCase()),
+                  ).length === 0 && (
+                    <p className="text-xs text-slate-400 italic">
+                      No matching customers
+                    </p>
+                  )}
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-blue-100 shadow-sm space-y-2">
+                  <span className="text-xs font-black uppercase text-slate-400">
+                    Orders Found
+                  </span>
+                  {orders
+                    .filter((o) =>
+                      `${o.id} ${o.customer}`
+                        .toLowerCase()
+                        .includes(globalSearch.toLowerCase()),
+                    )
+                    .map((o) => (
+                      <div
+                        key={o.id}
+                        className="text-sm font-bold text-slate-900 flex justify-between"
+                      >
+                        <span>
+                          {o.id} ({o.customer})
+                        </span>
+                        <button
+                          onClick={() => setActiveTab("orders")}
+                          className="text-blue-600 text-xs"
+                        >
+                          View
+                        </button>
+                      </div>
+                    ))}
+                  {orders.filter((o) =>
+                    `${o.id} ${o.customer}`
+                      .toLowerCase()
+                      .includes(globalSearch.toLowerCase()),
+                  ).length === 0 && (
+                    <p className="text-xs text-slate-400 italic">
+                      No matching orders
+                    </p>
+                  )}
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-blue-100 shadow-sm space-y-2">
+                  <span className="text-xs font-black uppercase text-slate-400">
+                    Products Found
+                  </span>
+                  {products
+                    .filter((p) =>
+                      p.name.toLowerCase().includes(globalSearch.toLowerCase()),
+                    )
+                    .map((p) => (
+                      <div
+                        key={p.id}
+                        className="text-sm font-bold text-slate-900 flex justify-between"
+                      >
+                        <span>{p.name}</span>
+                        <button
+                          onClick={() => setActiveTab("products")}
+                          className="text-blue-600 text-xs"
+                        >
+                          View
+                        </button>
+                      </div>
+                    ))}
+                  {products.filter((p) =>
+                    p.name.toLowerCase().includes(globalSearch.toLowerCase()),
+                  ).length === 0 && (
+                    <p className="text-xs text-slate-400 italic">
+                      No matching products
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ================= 1. DASHBOARD TAB ================= */}
           {activeTab === "dashboard" && (
             <div className="space-y-8 animate-fadeIn">
-              {/* 5 Stat Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
                 <div className="bg-white p-6 rounded-[28px] border border-slate-200 shadow-sm flex justify-between items-center">
                   <div>
@@ -1219,7 +2122,7 @@ export default function AdminDashboard() {
                     </h3>
                   </div>
                   <div className="bg-blue-50 text-blue-600 p-3.5 rounded-2xl border border-blue-100">
-                    <CoinsIcon className="h-7 w-7" />
+                    <Coins className="h-7 w-7" />
                   </div>
                 </div>
 
@@ -1273,6 +2176,32 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
+
+              {/* Low Stock Warning Banner */}
+              {products.some((p) => p.stock <= p.minStock) && (
+                <div className="bg-amber-50 border border-amber-200 p-6 rounded-[28px] flex items-center justify-between shadow-sm animate-fadeIn">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-amber-100 text-amber-700 p-3 rounded-2xl">
+                      <AlertTriangle className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-black text-amber-900">
+                        Low Stock Inventory Alert!
+                      </h4>
+                      <p className="text-xs font-bold text-amber-700">
+                        One or more items have dropped below their minimum
+                        threshold and require a reorder or production run.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab("products")}
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs shadow cursor-pointer"
+                  >
+                    View Inventory
+                  </button>
+                </div>
+              )}
 
               {/* Real SVG Charts Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -1420,6 +2349,45 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
+
+              {/* System Audit Trail Widget */}
+              <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm space-y-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-base font-black uppercase text-slate-900 flex items-center space-x-2">
+                    <Activity className="h-5 w-5 text-blue-600" />
+                    <span>System Audit Trail & Recent Activity Log</span>
+                  </h3>
+                  <span className="text-xs font-bold text-slate-400">
+                    Live Workspace Monitoring
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {auditLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100/60 transition"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0"></div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">
+                            {log.action}
+                          </p>
+                          <p className="text-xs text-slate-500 font-medium">
+                            Performed by{" "}
+                            <span className="text-blue-600 font-bold">
+                              {log.user}
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-mono text-slate-400 bg-white px-3 py-1 rounded-xl border border-slate-200">
+                        {log.timestamp}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -1447,19 +2415,27 @@ export default function AdminDashboard() {
 
               <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden p-6 space-y-4">
                 <h3 className="text-sm font-black uppercase tracking-wider text-slate-400">
-                  Order Management & Fulfillment
+                  Order Management & Payment Verification
                 </h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-base">
                     <thead>
                       <tr className="border-b border-slate-100 text-sm text-slate-400 uppercase font-black">
-                        <th className="pb-5 px-5">Order ID</th>
-                        <th className="pb-5 px-5">Customer</th>
-                        <th className="pb-5 px-5">Type</th>
-                        <th className="pb-5 px-5">Total</th>
-                        <th className="pb-5 px-5">Status (Cycle)</th>
-                        <th className="pb-5 px-5">Driver</th>
-                        <th className="pb-5 px-5 text-right">Actions</th>
+                        <th className="py-5 px-5 align-middle">Order ID</th>
+                        <th className="py-5 px-5 align-middle">Customer</th>
+                        <th className="py-5 px-5 align-middle">Total</th>
+                        <th className="py-5 px-5 align-middle">
+                          Payment Status (Cycle)
+                        </th>
+                        <th className="py-5 px-5 align-middle">
+                          Fulfillment (Cycle)
+                        </th>
+                        <th className="py-5 px-5 align-middle">
+                          Assigned Driver
+                        </th>
+                        <th className="py-5 px-5 align-middle text-center">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
@@ -1468,43 +2444,64 @@ export default function AdminDashboard() {
                           key={ord.id}
                           className="hover:bg-slate-50 transition"
                         >
-                          <td className="py-5 px-5 font-bold text-blue-600">
+                          <td className="py-5 px-5 font-bold text-blue-600 align-middle">
                             {ord.id}
                           </td>
-                          <td className="py-5 px-5 font-bold text-slate-900">
+                          <td className="py-5 px-5 font-bold text-slate-900 align-middle">
                             {ord.customer}
                           </td>
-                          <td className="py-5 px-5">
-                            <span className="px-3 py-1.5 bg-slate-100 rounded-lg text-slate-700 font-bold text-xs">
-                              {ord.type}
-                            </span>
-                          </td>
-                          <td className="py-5 px-5 font-bold text-slate-900">
+                          <td className="py-5 px-5 font-bold text-slate-900 align-middle">
                             {ord.total}
                           </td>
-                          <td className="py-5 px-5">
+                          <td className="py-5 px-5 align-middle">
+                            <button
+                              onClick={() => handleTogglePaymentStatus(ord.id)}
+                              className={`px-4 py-1.5 rounded-full font-black text-xs tracking-wider cursor-pointer hover:opacity-80 transition inline-flex items-center space-x-1 ${ord.paymentStatus.includes("PAID") ? "bg-purple-100 text-purple-800 border border-purple-200" : "bg-rose-100 text-rose-800 border border-rose-200"}`}
+                              title="Click to cycle payment status"
+                            >
+                              <CreditCard className="h-3 w-3 mr-1" />
+                              <span>{ord.paymentStatus} 🔄</span>
+                            </button>
+                          </td>
+                          <td className="py-5 px-5 align-middle">
                             <button
                               onClick={() => handleToggleOrderStatus(ord.id)}
                               className={`px-4 py-1.5 rounded-full font-black text-xs tracking-wider cursor-pointer hover:opacity-80 transition ${ord.status === "DELIVERED" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-orange-100 text-orange-800 border border-orange-200"}`}
-                              title="Click to cycle status"
+                              title="Click to cycle fulfillment status"
                             >
                               {ord.status} 🔄
                             </button>
                           </td>
-                          <td className="py-5 px-5 font-bold text-slate-700">
-                            {ord.rider}
+                          <td className="py-5 px-5 font-bold text-blue-700 align-middle">
+                            {ord.rider ? (
+                              <span className="bg-blue-50 border border-blue-200 px-3 py-1 rounded-xl text-xs">
+                                {ord.rider}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-xs italic">
+                                Unassigned
+                              </span>
+                            )}
                           </td>
-                          <td className="py-5 px-5 text-right space-x-3">
+                          <td className="py-5 px-5 text-center space-x-2 align-middle">
+                            <button
+                              onClick={() => setAssigningOrder(ord)}
+                              className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold rounded-xl border border-blue-200 transition inline-flex items-center space-x-1 cursor-pointer text-xs"
+                              title="Assign Rider"
+                            >
+                              <UserCheck className="h-4 w-4" />
+                              <span>Assign</span>
+                            </button>
                             <button
                               onClick={() => setSelectedOrder(ord)}
-                              className="px-4 py-2 bg-slate-100 hover:bg-blue-50 text-slate-700 font-bold rounded-xl border border-slate-200 transition inline-flex items-center space-x-1.5 cursor-pointer text-sm"
+                              className="px-3 py-2 bg-slate-100 hover:bg-blue-50 text-slate-700 font-bold rounded-xl border border-slate-200 transition inline-flex items-center space-x-1 cursor-pointer text-xs"
                             >
                               <Eye className="h-4 w-4" />
                               <span>View</span>
                             </button>
                             <button
                               onClick={() => handleDeleteOrder(ord.id)}
-                              className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl border border-rose-200 transition inline-flex items-center space-x-1.5 cursor-pointer text-sm"
+                              className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl border border-rose-200 transition inline-flex items-center space-x-1 cursor-pointer text-xs"
                             >
                               <Trash2 className="h-4 w-4" />
                               <span>Delete</span>
@@ -1522,13 +2519,17 @@ export default function AdminDashboard() {
           {/* ================= 3. PRODUCTS TAB ================= */}
           {activeTab === "products" && (
             <div className="space-y-6 animate-fadeIn">
-              <div className="flex justify-end items-center">
+              <div className="flex justify-between items-center">
+                <p className="text-sm font-bold text-slate-600">
+                  Product Catalog & Inventory Levels
+                </p>
                 <button
                   onClick={() => {
                     setEditingProduct(null);
                     setNewProdName("");
                     setNewProdPrice("");
                     setNewProdStock("");
+                    setNewProdMinStock("10");
                     setIsAddProductOpen(true);
                   }}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center space-x-2 shadow-lg shadow-blue-500/20 cursor-pointer"
@@ -1539,81 +2540,138 @@ export default function AdminDashboard() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {products.map((prod) => (
-                  <div
-                    key={prod.id}
-                    className="bg-white p-7 rounded-[28px] border border-slate-200 shadow-sm space-y-4 relative group"
-                  >
-                    <div className="flex justify-between items-start">
-                      <span className="text-xs font-bold uppercase tracking-wider bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl border border-blue-100">
-                        {prod.category}
-                      </span>
-                      <div className="flex items-center space-x-3">
-                        <button
-                          onClick={() => handleOpenEditProduct(prod)}
-                          className="text-slate-400 hover:text-blue-600 transition cursor-pointer p-1"
-                          title="Edit Product"
+                {products.map((prod) => {
+                  const isLowStock = prod.stock <= (prod.minStock || 10);
+                  return (
+                    <div
+                      key={prod.id}
+                      className={`bg-white p-7 rounded-[28px] border shadow-sm space-y-4 relative group transition ${isLowStock ? "border-amber-300 bg-amber-50/20" : "border-slate-200"}`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <span className="text-xs font-bold uppercase tracking-wider bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl border border-blue-100">
+                          {prod.category}
+                        </span>
+                        <div className="flex items-center space-x-3">
+                          <button
+                            onClick={() => handleOpenEditProduct(prod)}
+                            className="text-slate-400 hover:text-blue-600 transition cursor-pointer p-1"
+                            title="Edit Product"
+                          >
+                            <Edit3 className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProduct(prod.id)}
+                            className="text-slate-400 hover:text-rose-500 transition cursor-pointer p-1"
+                            title="Delete Product"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <h4 className="font-black text-slate-900 text-lg">
+                        {prod.name}
+                      </h4>
+
+                      {isLowStock && (
+                        <div className="flex items-center space-x-2 bg-amber-100/80 text-amber-900 px-3 py-1.5 rounded-xl border border-amber-200 text-xs font-black">
+                          <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0" />
+                          <span>LOW STOCK WARNING (Min: {prod.minStock})</span>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+                        <span className="text-base font-black text-blue-600">
+                          {prod.price}
+                        </span>
+                        <span
+                          className={`text-sm font-black ${isLowStock ? "text-amber-700" : "text-slate-700"}`}
                         >
-                          <Edit3 className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProduct(prod.id)}
-                          className="text-slate-400 hover:text-rose-500 transition cursor-pointer p-1"
-                          title="Delete Product"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
+                          Stock: {prod.stock} units
+                        </span>
                       </div>
                     </div>
-                    <h4 className="font-black text-slate-900 text-lg">
-                      {prod.name}
-                    </h4>
-                    <div className="flex justify-between items-center pt-4 border-t border-slate-100">
-                      <span className="text-base font-black text-blue-600">
-                        {prod.price}
-                      </span>
-                      <span className="text-sm font-bold text-slate-600">
-                        Stock: {prod.stock} units
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* ================= 4. SALES REPORTS & FORECASTS TAB ================= */}
+          {/* ================= 4. SALES REPORTS & GENERATE REPORTS TAB ================= */}
           {activeTab === "reports" && (
             <div className="space-y-8 animate-fadeIn">
-              <div className="flex justify-between items-center flex-wrap gap-4">
+              <div className="flex justify-between items-center flex-wrap gap-4 bg-white p-6 rounded-[28px] border border-slate-200 shadow-sm">
                 <div>
                   <h3 className="text-lg font-black text-slate-900">
-                    Sales Performance & Analytics
+                    Generate Reports & Analytics
                   </h3>
                   <p className="text-sm text-slate-600">
-                    Monitor financial reports and demand forecasts.
+                    Filter financial statements, sales logs, and inventory
+                    requirements.
                   </p>
                 </div>
-                <button
-                  onClick={() =>
-                    showToast("CSV exported successfully", "success")
-                  }
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-2xl font-black text-sm flex items-center space-x-2 shadow-md cursor-pointer"
-                >
-                  <Download className="h-4 w-4" />
-                  <span>Export CSV</span>
-                </button>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center space-x-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
+                    <FileText className="h-4 w-4 text-slate-400" />
+                    <select
+                      value={reportType}
+                      onChange={(e) =>
+                        setReportType(e.target.value as "sales" | "inventory")
+                      }
+                      className="bg-transparent text-sm font-bold text-slate-700 outline-none cursor-pointer"
+                    >
+                      <option value="sales">Sales & Transactions Report</option>
+                      <option value="inventory">
+                        Inventory & Demand Forecast Report
+                      </option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center space-x-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
+                    <Calendar className="h-4 w-4 text-slate-400" />
+                    <select
+                      value={reportDateRange}
+                      onChange={(e) => setReportDateRange(e.target.value)}
+                      className="bg-transparent text-sm font-bold text-slate-700 outline-none cursor-pointer"
+                    >
+                      <option value="Today">Today</option>
+                      <option value="This Week">This Week</option>
+                      <option value="This Month">This Month</option>
+                      <option value="Year-to-Date">Year-to-Date</option>
+                    </select>
+                  </div>
+
+                  <button
+                    onClick={() => setIsRecordSaleOpen(true)}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-black text-xs flex items-center space-x-2 shadow-md cursor-pointer"
+                  >
+                    <Receipt className="h-4 w-4" />
+                    <span>Record Sale</span>
+                  </button>
+                  <button
+                    onClick={() =>
+                      showToast(
+                        `Successfully exported ${reportType} report for ${reportDateRange}!`,
+                        "success",
+                      )
+                    }
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-black text-xs flex items-center space-x-2 shadow-md cursor-pointer"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Export Report</span>
+                  </button>
+                </div>
               </div>
 
-              {/* 4 Stat Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="bg-white p-6 rounded-[28px] border border-slate-200 shadow-sm flex justify-between items-center">
                   <div>
                     <span className="text-sm font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                      Total Sales
+                      Period ({reportDateRange}) Sales
                     </span>
                     <h3 className="text-3xl font-black text-blue-600">
-                      ₱100.00
+                      ₱150.00
                     </h3>
                   </div>
                   <div className="bg-blue-50 text-blue-600 p-3.5 rounded-2xl border border-blue-100">
@@ -1624,10 +2682,10 @@ export default function AdminDashboard() {
                 <div className="bg-white p-6 rounded-[28px] border border-slate-200 shadow-sm flex justify-between items-center">
                   <div>
                     <span className="text-sm font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                      Total Orders
+                      Total Entries
                     </span>
                     <h3 className="text-3xl font-black text-slate-900">
-                      {orders.length}
+                      {salesRecords.length + orders.length}
                     </h3>
                   </div>
                   <div className="bg-emerald-50 text-emerald-600 p-3.5 rounded-2xl border border-emerald-100">
@@ -1638,9 +2696,11 @@ export default function AdminDashboard() {
                 <div className="bg-white p-6 rounded-[28px] border border-slate-200 shadow-sm flex justify-between items-center">
                   <div>
                     <span className="text-sm font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                      Delivered Orders
+                      Fulfillment Rate
                     </span>
-                    <h3 className="text-3xl font-black text-emerald-600">1</h3>
+                    <h3 className="text-3xl font-black text-emerald-600">
+                      100%
+                    </h3>
                   </div>
                   <div className="bg-emerald-50 text-emerald-600 p-3.5 rounded-2xl border border-emerald-100">
                     <CheckCircle className="h-7 w-7" />
@@ -1650,93 +2710,146 @@ export default function AdminDashboard() {
                 <div className="bg-white p-6 rounded-[28px] border border-slate-200 shadow-sm flex justify-between items-center">
                   <div>
                     <span className="text-sm font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                      Avg Order Value
+                      Active Forecasts
                     </span>
                     <h3 className="text-3xl font-black text-purple-600">
-                      ₱100.00
+                      {forecastList.length} Items
                     </h3>
                   </div>
                   <div className="bg-purple-50 text-purple-600 p-3.5 rounded-2xl border border-purple-100">
-                    <DollarSign className="h-7 w-7" />
+                    <Coins className="h-7 w-7" />
                   </div>
                 </div>
               </div>
 
-              {/* Demand Forecast Table Section */}
-              <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm space-y-6">
-                <h3 className="text-base font-black uppercase text-slate-900 flex items-center space-x-2">
-                  <BarChart3 className="h-5 w-5 text-blue-600" />
-                  <span>Demand Forecast Analytics (Forecast Table)</span>
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-base">
-                    <thead>
-                      <tr className="border-b border-slate-100 text-sm text-slate-400 uppercase font-black">
-                        <th className="pb-4 px-4">Forecast ID</th>
-                        <th className="pb-4 px-4">Product Name</th>
-                        <th className="pb-4 px-4">Forecast Date</th>
-                        <th className="pb-4 px-4">Forecasted Demand</th>
-                        <th className="pb-4 px-4">Sales Ref</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                      {forecastList.map((fc) => (
-                        <tr
-                          key={fc.ForecastID}
-                          className="hover:bg-slate-50 transition"
-                        >
-                          <td className="py-5 px-4 font-bold text-blue-600">
-                            #FC-{fc.ForecastID}
-                          </td>
-                          <td className="py-5 px-4 font-bold text-slate-900">
-                            {fc.ProductName}
-                          </td>
-                          <td className="py-5 px-4 text-slate-700">
-                            {fc.ForecastDate}
-                          </td>
-                          <td className="py-5 px-4">
-                            <span className="bg-cyan-50 text-cyan-800 border border-cyan-200 px-3 py-1.5 rounded-full font-black text-sm">
-                              {fc.ForecastedDemand} units
-                            </span>
-                          </td>
-                          <td className="py-5 px-4 font-mono text-slate-600 text-xs">
-                            {fc.SalesHistoryRef}
-                          </td>
+              {reportType === "sales" ? (
+                <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm space-y-6 animate-fadeIn">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-base font-black uppercase text-slate-900 flex items-center space-x-2">
+                      <Receipt className="h-5 w-5 text-emerald-600" />
+                      <span>
+                        Sales & Transactions Breakdown ({reportDateRange})
+                      </span>
+                    </h3>
+                    <span className="text-xs font-bold text-slate-400">
+                      Showing all registered logs
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-base">
+                      <thead>
+                        <tr className="border-b border-slate-100 text-sm text-slate-400 uppercase font-black">
+                          <th className="py-4 px-4 align-middle">TXN ID</th>
+                          <th className="py-4 px-4 align-middle">
+                            Buyer / Customer
+                          </th>
+                          <th className="py-4 px-4 align-middle">Item</th>
+                          <th className="py-4 px-4 align-middle">Qty</th>
+                          <th className="py-4 px-4 align-middle">Total</th>
+                          <th className="py-4 px-4 align-middle">Method</th>
+                          <th className="py-4 px-4 align-middle text-right">
+                            Date
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                        {salesRecords.map((txn) => (
+                          <tr
+                            key={txn.TransactionID}
+                            className="hover:bg-slate-50 transition"
+                          >
+                            <td className="py-5 px-4 font-bold text-emerald-600 align-middle">
+                              {txn.TransactionID}
+                            </td>
+                            <td className="py-5 px-4 font-bold text-slate-900 align-middle">
+                              {txn.CustomerName}
+                            </td>
+                            <td className="py-5 px-4 text-slate-700 align-middle">
+                              {txn.ItemName}
+                            </td>
+                            <td className="py-5 px-4 text-slate-700 align-middle">
+                              {txn.Quantity}
+                            </td>
+                            <td className="py-5 px-4 font-bold text-blue-600 align-middle">
+                              {txn.TotalAmount}
+                            </td>
+                            <td className="py-5 px-4 align-middle">
+                              <span className="px-3 py-1 bg-slate-100 rounded-lg text-xs font-bold">
+                                {txn.PaymentMethod}
+                              </span>
+                            </td>
+                            <td className="py-5 px-4 text-right text-slate-600 text-xs align-middle">
+                              {txn.Date}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-
-              {/* Product Performance Table */}
-              <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm space-y-4">
-                <h3 className="text-base font-black uppercase text-slate-700">
-                  Product Performance
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-base">
-                    <thead>
-                      <tr className="border-b border-slate-100 text-sm text-slate-400 uppercase font-black">
-                        <th className="pb-4">Product Name</th>
-                        <th className="pb-4">Quantity Sold</th>
-                        <th className="pb-4 text-right">Revenue</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                      <tr>
-                        <td className="py-5 font-bold text-slate-900">
-                          5-Gallon Purified Water
-                        </td>
-                        <td className="py-5">2</td>
-                        <td className="py-5 text-right font-black text-blue-600">
-                          ₱50.00
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+              ) : (
+                <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm space-y-6 animate-fadeIn">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-base font-black uppercase text-slate-900 flex items-center space-x-2">
+                      <BarChart3 className="h-5 w-5 text-blue-600" />
+                      <span>
+                        Inventory Usage & Demand Forecast Report (
+                        {reportDateRange})
+                      </span>
+                    </h3>
+                    <span className="text-xs font-bold text-slate-400">
+                      Moving average calculations
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-base">
+                      <thead>
+                        <tr className="border-b border-slate-100 text-sm text-slate-400 uppercase font-black">
+                          <th className="py-4 px-4 align-middle">
+                            Forecast ID
+                          </th>
+                          <th className="py-4 px-4 align-middle">
+                            Product Name
+                          </th>
+                          <th className="py-4 px-4 align-middle">
+                            Forecast Date
+                          </th>
+                          <th className="py-4 px-4 align-middle">
+                            Forecasted Demand
+                          </th>
+                          <th className="py-4 px-4 align-middle">Sales Ref</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                        {forecastList.map((fc) => (
+                          <tr
+                            key={fc.ForecastID}
+                            className="hover:bg-slate-50 transition"
+                          >
+                            <td className="py-5 px-4 font-bold text-blue-600 align-middle">
+                              #FC-{fc.ForecastID}
+                            </td>
+                            <td className="py-5 px-4 font-bold text-slate-900 align-middle">
+                              {fc.ProductName}
+                            </td>
+                            <td className="py-5 px-4 text-slate-700 align-middle">
+                              {fc.ForecastDate}
+                            </td>
+                            <td className="py-5 px-4 align-middle">
+                              <span className="bg-cyan-50 text-cyan-800 border border-cyan-200 px-3 py-1.5 rounded-full font-black text-sm">
+                                {fc.ForecastedDemand} units
+                              </span>
+                            </td>
+                            <td className="py-5 px-4 font-mono text-slate-600 text-xs align-middle">
+                              {fc.SalesHistoryRef}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -1760,6 +2873,7 @@ export default function AdminDashboard() {
                     setNewCustFirstName("");
                     setNewCustLastName("");
                     setNewCustMiddleName("");
+                    setNewCustSuffix("");
                     setNewCustAddress("");
                     setNewCustContact("");
                     setNewCustEmail("");
@@ -1777,15 +2891,17 @@ export default function AdminDashboard() {
                   Registered Customer Accounts ({filteredCustomers.length})
                 </h3>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-center text-base">
+                  <table className="w-full text-left text-base">
                     <thead>
                       <tr className="border-b border-slate-100 text-sm text-slate-400 uppercase font-black">
-                        <th className="pb-5 px-5">ID</th>
-                        <th className="pb-5 px-5">Full Name</th>
-                        <th className="pb-5 px-5">Address</th>
-                        <th className="pb-5 px-5">Contact</th>
-                        <th className="pb-5 px-5">Email</th>
-                        <th className="pb-5 px-5">Actions</th>
+                        <th className="py-5 px-5 align-middle">ID</th>
+                        <th className="py-5 px-5 align-middle">Full Name</th>
+                        <th className="py-5 px-5 align-middle">Address</th>
+                        <th className="py-5 px-5 align-middle">Contact</th>
+                        <th className="py-5 px-5 align-middle">Email</th>
+                        <th className="py-5 px-5 align-middle text-center">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
@@ -1794,25 +2910,34 @@ export default function AdminDashboard() {
                           key={cust.CustomerID}
                           className="hover:bg-slate-50 transition"
                         >
-                          <td className="py-5 px-5 font-bold text-blue-600">
+                          <td className="py-5 px-5 font-bold text-blue-600 align-middle">
                             #CUST-{cust.CustomerID}
                           </td>
-                          <td className="py-5 px-5 font-bold text-slate-900">
-                            {cust.LastName}, {cust.FirstName} {cust.MiddleName}
+                          <td className="py-5 px-5 font-bold text-slate-900 align-middle">
+                            {cust.LastName}, {cust.FirstName} {cust.MiddleName}{" "}
+                            {cust.Suffix}
                           </td>
-                          <td className="py-5 px-5 text-slate-700">
+                          <td className="py-5 px-5 text-slate-700 align-middle">
                             {cust.Address}
                           </td>
-                          <td className="py-5 px-5 text-slate-700">
+                          <td className="py-5 px-5 text-slate-700 align-middle">
                             {cust.ContactNumber}
                           </td>
-                          <td className="py-5 px-5 text-blue-600 font-bold">
+                          <td className="py-5 px-5 text-blue-600 font-bold align-middle">
                             {cust.Email}
                           </td>
-                          <td className="py-5 px-5 text-right space-x-3">
+                          <td className="py-5 px-5 text-center space-x-2 align-middle">
+                            <button
+                              onClick={() => setViewingCustomerHistory(cust)}
+                              className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold rounded-xl border border-blue-200 transition inline-flex items-center space-x-1 cursor-pointer text-xs"
+                              title="View Order History"
+                            >
+                              <History className="h-4 w-4" />
+                              <span>History</span>
+                            </button>
                             <button
                               onClick={() => handleOpenEditCustomer(cust)}
-                              className="px-4 py-2 bg-slate-100 hover:bg-blue-50 text-slate-700 font-bold rounded-xl border border-slate-200 transition inline-flex items-center space-x-1.5 cursor-pointer text-sm"
+                              className="px-3 py-2 bg-slate-100 hover:bg-blue-50 text-slate-700 font-bold rounded-xl border border-slate-200 transition inline-flex items-center space-x-1 cursor-pointer text-xs"
                             >
                               <Edit3 className="h-4 w-4" />
                               <span>Edit</span>
@@ -1821,7 +2946,7 @@ export default function AdminDashboard() {
                               onClick={() =>
                                 handleDeleteCustomer(cust.CustomerID)
                               }
-                              className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl border border-rose-200 transition inline-flex items-center space-x-1.5 cursor-pointer text-sm"
+                              className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl border border-rose-200 transition inline-flex items-center space-x-1 cursor-pointer text-xs"
                             >
                               <Trash2 className="h-4 w-4" />
                               <span>Delete</span>
@@ -1849,8 +2974,10 @@ export default function AdminDashboard() {
                     setNewStaffFirstName("");
                     setNewStaffLastName("");
                     setNewStaffMiddleName("");
+                    setNewStaffSuffix("");
                     setNewStaffRole("Delivery");
                     setNewStaffContact("");
+                    setNewStaffEmail("");
                     setIsAddStaffOpen(true);
                   }}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center space-x-2 shadow-lg cursor-pointer"
@@ -1862,17 +2989,20 @@ export default function AdminDashboard() {
 
               <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden p-6 space-y-4">
                 <h3 className="text-sm font-black uppercase tracking-wider text-slate-400">
-                  Staff & Driver Roster
+                  Staff & Driver Roster (Login Credentials)
                 </h3>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-center text-base">
+                  <table className="w-full text-left text-base">
                     <thead>
                       <tr className="border-b border-slate-100 text-sm text-slate-400 uppercase font-black">
-                        <th className="pb-5 px-5">Staff ID</th>
-                        <th className="pb-5 px-5">Full Name</th>
-                        <th className="pb-5 px-5">Role</th>
-                        <th className="pb-5 px-5">Contact</th>
-                        <th className="pb-5 px-5">Actions</th>
+                        <th className="py-5 px-5 align-middle">Staff ID</th>
+                        <th className="py-5 px-5 align-middle">Full Name</th>
+                        <th className="py-5 px-5 align-middle">Role</th>
+                        <th className="py-5 px-5 align-middle">Login Email</th>
+                        <th className="py-5 px-5 align-middle">Contact</th>
+                        <th className="py-5 px-5 align-middle text-center">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
@@ -1881,23 +3011,28 @@ export default function AdminDashboard() {
                           key={stf.StaffID}
                           className="hover:bg-slate-50 transition"
                         >
-                          <td className="py-5 px-5 font-bold text-blue-600">
+                          <td className="py-5 px-5 font-bold text-blue-600 align-middle">
                             #STF-00{stf.StaffID}
                           </td>
-                          <td className="py-5 px-5 font-bold text-slate-900">
-                            {stf.LastName}, {stf.FirstName} {stf.MiddleName}
+                          <td className="py-5 px-5 font-bold text-slate-900 align-middle">
+                            {stf.LastName}, {stf.FirstName} {stf.MiddleName}{" "}
+                            {stf.Suffix}
                           </td>
-                          <td className="py-5 px-5">
+                          <td className="py-5 px-5 align-middle">
                             <span
                               className={`px-4 py-1.5 rounded-full font-black text-xs tracking-wider inline-flex items-center space-x-1 ${stf.Role === "Admin" ? "bg-purple-100 text-purple-800 border border-purple-200" : stf.Role === "Staff" ? "bg-blue-100 text-blue-800 border border-blue-200" : "bg-emerald-100 text-emerald-800 border border-emerald-200"}`}
                             >
                               <span>{stf.Role}</span>
                             </span>
                           </td>
-                          <td className="py-5 px-5 text-slate-700">
+                          <td className="py-5 px-5 text-blue-600 font-bold align-middle flex items-center space-x-1.5 pt-7">
+                            <Mail className="h-4 w-4 text-blue-400 shrink-0" />
+                            <span>{stf.Email || "No Email"}</span>
+                          </td>
+                          <td className="py-5 px-5 text-slate-700 align-middle">
                             {stf.ContactNumber}
                           </td>
-                          <td className="py-5 px-5 text-right space-x-3">
+                          <td className="py-5 px-5 text-center space-x-3 align-middle">
                             <button
                               onClick={() => setSelectedStaffDetails(stf)}
                               className="px-4 py-2 bg-slate-100 hover:bg-blue-50 text-slate-700 font-bold rounded-xl border border-slate-200 transition inline-flex items-center space-x-1.5 cursor-pointer text-sm"
