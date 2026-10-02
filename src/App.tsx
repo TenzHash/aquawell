@@ -4,6 +4,7 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import CustomerDashboard from "./pages/customer/CustomerDashboard";
+import StaffDashboard from "./pages/staff/StaffDashboard";
 import { ThemeProvider } from "./context/ThemeContext";
 
 export default function App() {
@@ -13,10 +14,10 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />{" "}
-          {/* Ensure this exists */}
+          <Route path="/register" element={<RegisterPage />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/customer/dashboard" element={<CustomerDashboard />} />
+          <Route path="/staff/dashboard" element={<StaffDashboard />} />
           <Route path="*" element={<LandingPage />} />
         </Routes>
       </Router>

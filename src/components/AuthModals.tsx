@@ -11,6 +11,7 @@ import {
   Shield,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase"; // Import your supabase client
 
 interface AuthModalsProps {
   loginOpen: boolean;
@@ -30,6 +31,7 @@ export default function AuthModals({
   const navigate = useNavigate();
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   const [regData, setRegData] = useState({
     fullName: "",
@@ -42,23 +44,68 @@ export default function AuthModals({
     confirmPassword: "",
   });
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  // REAL SUPABASE LOGIN HANDLER
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginEmail.includes("admin")) {
-      navigate("/admin/dashboard");
-    } else {
-      navigate("/customer/dashboard");
+    setErrorMessage("");
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
+      });
+
+      if (error) throw error;
+
+      onClose();
+
+      // Role-based routing based on email identifier or database user metadata
+      if (loginEmail.includes("admin")) {
+        navigate("/admin/dashboard");
+      } else if (loginEmail.includes("staff")) {
+        navigate("/staff/dashboard");
+      } else {
+        navigate("/customer/dashboard");
+      }
+    } catch (err: any) {
+      setErrorMessage(
+        err.message || "Failed to login. Please check credentials.",
+      );
     }
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  // REAL SUPABASE REGISTRATION HANDLER
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage("");
+
     if (regData.password !== regData.confirmPassword) {
-      alert("Passwords do not match!");
+      setErrorMessage("Passwords do not match!");
       return;
     }
-    alert("Account created successfully!");
-    navigate("/customer/dashboard");
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: regData.email,
+        password: regData.password,
+        options: {
+          data: {
+            full_name: regData.fullName,
+            phone: regData.phone,
+            address: regData.address,
+            barangay: regData.barangay,
+            landmark: regData.landmark,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      alert("Registration successful! You can now log in.");
+      onSwitchToLogin();
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to register account.");
+    }
   };
 
   if (!loginOpen && !registerOpen) return null;
@@ -70,7 +117,7 @@ export default function AuthModals({
         <div className="bg-white p-8 rounded-[32px] shadow-2xl w-full max-w-md relative border border-slate-100">
           <button
             onClick={onClose}
-            className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 p-1"
+            className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -79,6 +126,12 @@ export default function AuthModals({
           <p className="text-xs text-slate-400 mb-6 font-medium">
             Access your station dashboard or client profile
           </p>
+
+          {errorMessage && (
+            <div className="mb-4 bg-rose-50 text-rose-600 p-3 rounded-xl text-xs font-bold border border-rose-100">
+              {errorMessage}
+            </div>
+          )}
 
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div>
@@ -92,7 +145,7 @@ export default function AuthModals({
                 onChange={(e) => setLoginEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-600 focus:bg-white outline-none text-sm font-medium text-slate-800 placeholder:text-slate-400"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-600 focus:bg-white outline-none text-sm font-medium text-slate-800"
               />
             </div>
 
@@ -107,7 +160,7 @@ export default function AuthModals({
                 onChange={(e) => setLoginPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-600 focus:bg-white outline-none text-sm font-medium text-slate-800 placeholder:text-slate-400"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-600 focus:bg-white outline-none text-sm font-medium text-slate-800"
               />
             </div>
 
@@ -130,36 +183,15 @@ export default function AuthModals({
               Register here
             </button>
           </div>
-
-          <div className="mt-6 text-xs text-slate-600 bg-blue-50/70 p-3.5 rounded-2xl border border-blue-100">
-            <p className="font-extrabold text-blue-900 mb-1 flex items-center space-x-1.5">
-              <Shield className="h-3.5 w-3.5 text-blue-600" />
-              <span>Demo Credentials:</span>
-            </p>
-            <p>
-              Customer:{" "}
-              <code className="text-blue-700 font-bold">
-                customer@example.com
-              </code>{" "}
-              / <code className="text-slate-900 font-bold">customer123</code>
-            </p>
-            <p>
-              Admin:{" "}
-              <code className="text-blue-700 font-bold">
-                admin@aquatack.com
-              </code>{" "}
-              / <code className="text-slate-900 font-bold">admin123</code>
-            </p>
-          </div>
         </div>
       )}
 
-      {/* Register Modal with Fixed Visible Text Styling */}
+      {/* Register Modal */}
       {registerOpen && (
         <div className="bg-white p-8 rounded-[32px] shadow-2xl w-full max-w-lg relative border border-slate-100 max-h-[90vh] overflow-y-auto">
           <button
             onClick={onClose}
-            className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 p-1"
+            className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -171,143 +203,126 @@ export default function AuthModals({
             Join us for fresh water delivery
           </p>
 
+          {errorMessage && (
+            <div className="mb-4 bg-rose-50 text-rose-600 p-3 rounded-xl text-xs font-bold border border-rose-100">
+              {errorMessage}
+            </div>
+          )}
+
           <form onSubmit={handleRegisterSubmit} className="space-y-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1.5">
-                <User className="h-3.5 w-3.5 text-blue-600" />
-                <span>Full Name</span>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Full Name
               </label>
               <input
                 type="text"
-                placeholder="John Doe"
                 required
                 value={regData.fullName}
                 onChange={(e) =>
                   setRegData({ ...regData, fullName: e.target.value })
                 }
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none"
               />
             </div>
-
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1.5">
-                <Mail className="h-3.5 w-3.5 text-blue-600" />
-                <span>Email Address</span>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Email Address
               </label>
               <input
                 type="email"
-                placeholder="you@example.com"
                 required
                 value={regData.email}
                 onChange={(e) =>
                   setRegData({ ...regData, email: e.target.value })
                 }
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none"
               />
             </div>
-
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1.5">
-                <Phone className="h-3.5 w-3.5 text-blue-600" />
-                <span>Phone Number</span>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Phone Number
               </label>
               <input
                 type="text"
-                placeholder="+1234567890"
                 required
                 value={regData.phone}
                 onChange={(e) =>
                   setRegData({ ...regData, phone: e.target.value })
                 }
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none"
               />
             </div>
-
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1.5">
-                <MapPin className="h-3.5 w-3.5 text-blue-600" />
-                <span>Address</span>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Delivery Address
               </label>
               <input
                 type="text"
-                placeholder="Your delivery address"
                 required
                 value={regData.address}
                 onChange={(e) =>
                   setRegData({ ...regData, address: e.target.value })
                 }
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none"
               />
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1.5">
-                  <Building className="h-3.5 w-3.5 text-blue-600" />
-                  <span>Barangay</span>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Barangay
                 </label>
                 <input
                   type="text"
-                  placeholder="Barangay"
                   required
                   value={regData.barangay}
                   onChange={(e) =>
                     setRegData({ ...regData, barangay: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1.5">
-                  <Compass className="h-3.5 w-3.5 text-blue-600" />
-                  <span>Landmark</span>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Landmark
                 </label>
                 <input
                   type="text"
-                  placeholder="Optional"
                   value={regData.landmark}
                   onChange={(e) =>
                     setRegData({ ...regData, landmark: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none"
                 />
               </div>
             </div>
-
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1.5">
-                <Lock className="h-3.5 w-3.5 text-blue-600" />
-                <span>Password</span>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Password
               </label>
               <input
                 type="password"
-                placeholder="••••••••"
                 required
                 value={regData.password}
                 onChange={(e) =>
                   setRegData({ ...regData, password: e.target.value })
                 }
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none"
               />
             </div>
-
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center space-x-1.5">
-                <Lock className="h-3.5 w-3.5 text-blue-600" />
-                <span>Confirm Password</span>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Confirm Password
               </label>
               <input
                 type="password"
-                placeholder="••••••••"
                 required
                 value={regData.confirmPassword}
                 onChange={(e) =>
                   setRegData({ ...regData, confirmPassword: e.target.value })
                 }
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none"
               />
             </div>
-
             <button
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-black shadow-lg transition text-sm mt-3 cursor-pointer"

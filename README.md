@@ -84,7 +84,7 @@ The **AquaWell Admin Portal** is a comprehensive, feature-complete administrativ
 
 ---
 
-## Key Features & Capabilities
+## Key Features & Capabilities As Of 01/10/2026
 
 ### 1. Admin Dashboard & Live Monitoring
 
@@ -126,3 +126,54 @@ The **AquaWell Admin Portal** is a comprehensive, feature-complete administrativ
 
 - **Quick Search Bar:** Master search input in the top header enabling instant multi-tab lookups across customers, products, and orders.
 - **Strict Form Validators:** Real-time error handling and pattern checks ensuring proper Philippine mobile number formats (`09XXXXXXXXX` or `+639XXXXXXXXX`) and blocking numbers/symbols in name entries (supporting first names, middle names, last names, and suffixes like Jr./III)
+
+---
+
+## 🚀 Project Overview & Progress So Far 02/10/26
+
+The system has successfully transitioned from static local state prototypes to a fully persistent, real-time cloud architecture powered by **React (Vite)** and **Supabase (Auth + PostgreSQL)**.
+
+### Core Milestones Achieved:
+
+- **Cloud Database & Schema Migration:** Configured relational tables for `orders`, `inventory` (products), `sales`, `customers`, `staff`, `audit_logs`, and `notifications`.
+- **Secure Authentication & Role-Based Access Control (RBAC):** Integrated Supabase Auth with custom database triggers (`handle_new_user`) to automatically provision user profiles and route roles (`admin`, `staff`, `delivery`, `customer`).
+- **Interactive Admin Dashboard:** Fully connected to live Supabase tables with asynchronous `useEffect` hooks and full CRUD mutation workflows for:
+  - **Order Management & Fulfillment Tracking:** Real-time status cycling (`PENDING` $\rightarrow$ `OUT FOR-DELIVERY` $\rightarrow$ `DELIVERED`), payment verification, and driver assignment.
+  - **Product Catalog & Inventory Control:** Stock level monitoring with low-stock warnings and threshold alerts.
+  - **Customer Directory & History:** Centralized client profile management and order history tracking.
+  - **Staff & Driver Roster:** Multi-tier role and contact management.
+  - **Sales Reports & Demand Forecast:** Visual analytics graphs and Weighted Moving Average (WMA) demand projection metrics.
+- **Automated Database Triggers:** Implemented server-side PostgreSQL functions and triggers for automatic low-stock warnings, new order notifications, automated inventory deductions, and system audit logging.
+
+---
+
+## 🛠️ Technology Stack
+
+- **Frontend:** React, TypeScript, Vite, Tailwind CSS, Lucide Icons, React Router
+- **Backend & Database:** Supabase (PostgreSQL, Row-Level Security, Auth, Serverless Functions/Triggers)
+- **Deployment & Hosting:** Vercel / Netlify
+
+---
+
+## 📊 Database Schema & Architecture
+
+The system utilizes the following core PostgreSQL tables in Supabase:
+
+1. **`profiles` / `customers` / `staff`**: User classification and personnel records.
+2. **`inventory`**: Tracks stock quantities, unit prices, and minimum alert thresholds.
+3. **`orders`**: Handles customer refill requests, fulfillment types (Delivery/Pickup), and rider dispatch.
+4. **`sales`**: Aggregates daily payment transactions and revenue data.
+5. **`notifications` & `audit_logs`**: Captures real-time system alerts, stock warnings, and administrative activity tracking.
+
+---
+
+## 🚦 Getting Started & Test Credentials
+
+### 1. Environment Setup
+
+Create a `.env` or configuration file with your Supabase credentials:
+
+```env
+VITE_SUPABASE_URL=your-supabase-project-url
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
