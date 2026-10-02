@@ -1,15 +1,5 @@
 import React, { useState } from "react";
-import {
-  X,
-  Lock,
-  Mail,
-  User,
-  Phone,
-  MapPin,
-  Building,
-  Compass,
-  Shield,
-} from "lucide-react";
+import { X, Lock, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase"; // Import your supabase client
 
@@ -50,7 +40,7 @@ export default function AuthModals({
     setErrorMessage("");
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: loginEmail,
         password: loginPassword,
       });
@@ -85,7 +75,7 @@ export default function AuthModals({
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email: regData.email,
         password: regData.password,
         options: {

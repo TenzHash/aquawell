@@ -29,7 +29,6 @@ import {
   ChevronDown,
   Search,
   Briefcase,
-  BarChart3,
   Edit3,
   Trash2,
   UserCheck,
