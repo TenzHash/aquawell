@@ -96,6 +96,19 @@ export default function AdminDashboard() {
     }
   };
 
+  // Helper for dynamic relative notification timestamps
+  const formatTimeAgo = (dateString: string) => {
+    if (!dateString) return "Just now";
+    const diffMinutes = Math.floor(
+      (new Date().getTime() - new Date(dateString).getTime()) / 60000,
+    );
+    if (diffMinutes < 1) return "Just now";
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${Math.floor(diffHours / 24)}d ago`;
+  };
+
   // Customer Order History Modal State
   const [viewingCustomerHistory, setViewingCustomerHistory] = useState<
     any | null
@@ -645,7 +658,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // Trigger initial database sync on load for all tables including admin profile & notifications
+  // Trigger initial database sync & real-time subscriptions on load
   useEffect(() => {
     fetchAdminProfile();
     fetchOrders();
@@ -655,6 +668,23 @@ export default function AdminDashboard() {
     fetchSalesRecords();
     fetchAuditLogs();
     fetchNotifications();
+
+    // Supabase Realtime subscription for incoming notifications
+    const notifChannel = supabase
+      .channel("public:notifications")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications" },
+        (payload) => {
+          setNotifications((prev) => [payload.new, ...prev]);
+          showToast(payload.new.title || "New system notification!", "error");
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(notifChannel);
+    };
   }, []);
 
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
@@ -2217,7 +2247,7 @@ export default function AdminDashboard() {
                               {n.title}
                             </span>
                             <span className="text-[10px] text-slate-400 font-medium">
-                              {n.time}
+                              {formatTimeAgo(n.created_at)}
                             </span>
                           </div>
                           <p className="text-xs text-slate-600 mt-1 font-medium">
