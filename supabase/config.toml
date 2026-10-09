@@ -1,0 +1,20 @@
+[functions.delete-user]
+verify_jwt = true
+
+[functions.create-staff-user]
+verify_jwt = true
+
+[functions.create-customer-user]
+verify_jwt = true
+
+[functions.repair-user-login]
+verify_jwt = true
+
+[functions.update-user-email]
+verify_jwt = true
+
+[functions.resolve-user-account]
+verify_jwt = true
+
+[functions.admin-reset-user-password]
+verify_jwt = true

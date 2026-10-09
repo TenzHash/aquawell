@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+html, body, #root { min-height: 100%; }
+body { margin: 0; }
+
+/* Shared theme fallback for legacy dashboard surfaces. */
+html.dark body { background: #020617; color: #e2e8f0; }
+html.dark .bg-white { background-color: #0f172a !important; }
+html.dark .bg-slate-50 { background-color: #020617 !important; }
+html.dark .bg-slate-100 { background-color: #1e293b !important; }
+html.dark .bg-slate-200 { background-color: #334155 !important; }
+html.dark .border-slate-100 { border-color: #1e293b !important; }
+html.dark .border-slate-200 { border-color: #334155 !important; }
+html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #1e293b !important; }
+html.dark .text-slate-950, html.dark .text-slate-900, html.dark .text-slate-800,
+html.dark .text-slate-700, html.dark .text-slate-600 { color: #e2e8f0 !important; }
+html.dark input, html.dark select, html.dark textarea {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+  border-color: #475569 !important;
+}
+html.dark input::placeholder, html.dark textarea::placeholder { color: #94a3b8; }
+html.dark option { background: #0f172a; color: #e2e8f0; }
+
+/* Staff dashboard dark-mode parity: scope legacy surface overrides to the staff portal. */
+html.dark [data-dashboard="staff"] .bg-white { background-color: #0f172a !important; }
+html.dark [data-dashboard="staff"] .bg-slate-50 { background-color: #020617 !important; }
+html.dark [data-dashboard="staff"] .bg-slate-100 { background-color: #1e293b !important; }
+html.dark [data-dashboard="staff"] .bg-slate-200 { background-color: #334155 !important; }
+html.dark [data-dashboard="staff"] .border-slate-100 { border-color: #1e293b !important; }
+html.dark [data-dashboard="staff"] .border-slate-200 { border-color: #334155 !important; }
+html.dark [data-dashboard="staff"] .text-slate-950,
+html.dark [data-dashboard="staff"] .text-slate-900,
+html.dark [data-dashboard="staff"] .text-slate-800,
+html.dark [data-dashboard="staff"] .text-slate-700,
+html.dark [data-dashboard="staff"] .text-slate-600 { color: #e2e8f0 !important; }
+html.dark [data-dashboard="staff"] .hover\:bg-slate-50:hover { background-color: #1e293b !important; }
+html.dark [data-dashboard="staff"] .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #1e293b !important; }
+
+/* Staff/Delivery dashboard: force the page-level solid surface to follow the shared theme. */
+html.dark [data-dashboard="staff"] { background-color: #020617 !important; color: #e2e8f0 !important; }
+html.dark [data-dashboard="staff"] main { background-color: #020617 !important; }
+html:not(.dark) [data-dashboard="staff"] { background-color: #f8fafc !important; }
+html:not(.dark) [data-dashboard="staff"] main { background-color: #f8fafc !important; }
